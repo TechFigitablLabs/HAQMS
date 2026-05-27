@@ -1,6 +1,7 @@
-'use client';
+"use client";
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
 import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -13,10 +14,15 @@ export default function QueueMonitor() {
   const [error, setError] = useState('');
   const [refreshCount, setRefreshCount] = useState(0);
 
+  const { token } = useAuth();
+
   const fetchQueueData = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/queue`);
-      if (!res.ok) throw new Error('Failed to retrieve active token queue.');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const res = await fetch(`${API_BASE_URL}/queue`, { headers });
+      if (!res.ok) {
+        throw new Error('Failed to retrieve active token queue.');
+      }
       const data = await res.json();
       setTokens(data);
       setError('');
@@ -26,7 +32,7 @@ export default function QueueMonitor() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     fetchQueueData();
