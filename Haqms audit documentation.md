@@ -1,7 +1,7 @@
 # HAQMS — Security & Performance Audit Documentation
 
 **Author:** Nithin K R  
-**GitHub:** [NITHINKR06/HAQMS](https://github.com/NITHINKR06/HAQMS)   
+**GitHub:** [NITHINKR06/HAQMS](https://github.com/NITHINKR06/HAQMS)  
 **Frontend (Live):** https://haqmsui.vercel.app  
 **Backend (Live):** https://haqms-8sb3.onrender.com  
 **Assignment:** Figital Labs — Full Stack Web Development Internship (HAQMS Engineering Evaluation)
@@ -22,80 +22,79 @@
 
 ## 1. Project Overview
 
-HAQMS (Hospital Appointment & Queue Management System) is a full-stack web application built with Next.js, Node.js/Express, PostgreSQL, and Prisma ORM. The repository was intentionally seeded with security vulnerabilities, performance bottlenecks, database inefficiencies, frontend bugs, and concurrency issues for candidate evaluation purposes.
+HAQMS (Hospital Appointment & Queue Management System) is a full-stack hospital management app built with Next.js, Node.js/Express, PostgreSQL, and Prisma ORM. The repository was intentionally seeded with security holes, performance issues, concurrency bugs, and incomplete features as part of an engineering evaluation.
 
-This document covers the full audit performed on the codebase, the issues discovered, the fixes applied, and the reasoning behind prioritization decisions.
+This document covers everything I found, how I fixed it, and why I made the decisions I did. I tracked all 10 issues on GitHub before touching any code — partly for a clean audit trail, partly because it forced me to fully understand each problem before jumping to a solution.
 
 ---
 
 ## 2. Issues Identified
 
-Ten issues were identified and tracked via GitHub Issues. They are grouped by severity and category below.
+Ten issues found and tracked via GitHub Issues, grouped by severity.
 
 ---
 
 ### 🔴 Critical — Security
 
 #### Issue #1 — SQL Injection in `GET /api/doctors`
-- **Location:** Backend route handler for `/api/doctors`
-- **Description:** User-supplied query parameters (e.g., `?search=`) were interpolated directly into a raw SQL string without sanitization or parameterization. An attacker could manipulate the query to dump, modify, or delete database records.
-- **Example payload:** `GET /api/doctors?search=' OR '1'='1`
-- **Severity:** Critical — direct database compromise possible.
+- **Location:** `backend/src/routes/doctors.js`
+- **Description:** The `?search=` query parameter was being dropped directly into a `$queryRawUnsafe` call with string interpolation — no sanitization, no parameterization. A payload like `' OR '1'='1` would return every record in the table. More destructive payloads could drop tables entirely.
+- **Severity:** Critical.
 
 #### Issue #2 — JWT Tokens Never Expire
-- **Location:** Backend auth middleware / token generation
-- **Description:** JWT tokens were issued without an `expiresIn` option, meaning a stolen token remained valid indefinitely. There was no mechanism to invalidate sessions.
-- **Severity:** Critical — stolen tokens grant permanent unauthorized access.
+- **Location:** `backend/src/routes/auth.js`
+- **Description:** `jwt.sign` was called without an `expiresIn` option. Any issued token was valid forever. If a token leaked — through logs, a compromised device, or network interception — there was no way to limit the damage because the token would never stop working.
+- **Severity:** Critical.
 
 #### Issue #3 — Plaintext Passwords Logged to Console
-- **Location:** Auth route (login / register handlers)
-- **Description:** `console.log(password)` or similar debug statements printed raw user passwords to server logs. In production this exposes credentials to anyone with log access.
-- **Severity:** Critical — violates basic credential security and HIPAA-level data handling.
+- **Location:** `backend/src/routes/auth.js` (login + register handlers)
+- **Description:** Raw `console.log` statements were printing user passwords to the server log on every login and registration. In production, anyone with access to the server logs or a logging service would see every user's password in plaintext.
+- **Severity:** Critical — basic HIPAA-level violation in a healthcare context.
 
 #### Issue #4 — Admin Authorization Check Disabled
-- **Location:** Admin-only route middleware
-- **Description:** The `isAdmin` role check was commented out or short-circuited (e.g., `if (true)` replacing the actual role check), allowing any authenticated user — or even unauthenticated requests — to access admin-only endpoints.
-- **Severity:** Critical — complete privilege escalation bypass.
+- **Location:** `backend/src/middleware/auth.js`
+- **Description:** The `authorizeAdminOnly` middleware was calling `next()` unconditionally — the actual role check was commented out. Any authenticated user (or anyone who could forge a token) could hit admin-only endpoints like patient deletion with no restriction.
+- **Severity:** Critical — full privilege escalation.
 
 ---
 
 ### 🟠 High — Performance
 
 #### Issue #5 — N+1 Queries in `GET /api/appointments`
-- **Location:** Appointments route handler
-- **Description:** The endpoint fetched a list of appointments and then, inside a loop, made individual database queries per appointment to fetch the associated doctor and patient. For 100 appointments this produced 201 database round trips instead of 1.
-- **Impact:** Severe latency under any non-trivial load.
+- **Location:** `backend/src/routes/appointments.js`
+- **Description:** The endpoint fetched all appointments, then looped through each one making two separate DB calls — one for the doctor, one for the patient. For 100 appointments that's 201 round trips to the database instead of 1. This would crawl under any real load.
+- **Impact:** Severe latency scaling linearly with appointment count.
 
 #### Issue #6 — Sequential DB Calls in Reports Endpoint
-- **Location:** Reports/analytics route
-- **Description:** The reports endpoint executed multiple independent database queries sequentially (one after another with `await`), each waiting for the previous to complete. These queries had no dependency on each other and could safely run in parallel.
-- **Impact:** Response time was the sum of all query durations rather than the maximum.
+- **Location:** `backend/src/routes/reports.js`
+- **Description:** The reports endpoint was running a separate `await` query per doctor in a loop — O(n) database calls where n is the number of doctors. Each query waited for the previous one to complete even though none of them had any dependency on each other. The response time was literally the sum of every query.
+- **Impact:** Gets worse as the doctor count grows. Completely avoidable.
 
 ---
 
 ### 🟠 High — Concurrency
 
 #### Issue #7 — Race Condition Duplicating Queue Token Numbers
-- **Location:** Queue token assignment logic
-- **Description:** When two patients checked in simultaneously, both requests read the same current `maxToken` value from the database before either had written an incremented value back. Both were assigned the same token number, causing duplicate queue entries.
-- **Impact:** Broken queue ordering, patient confusion, potential safety risk in a real hospital.
+- **Location:** `backend/src/routes/queue.js`
+- **Description:** The check-in flow read the current max token number, incremented it in JavaScript, then wrote it back. Under concurrent requests, two check-ins arriving within milliseconds of each other would both read the same max value before either had written back — both patients get the same token number. There was also an artificial 350ms `setTimeout` in the handler that served no functional purpose but made the race window significantly wider.
+- **Impact:** Duplicate token numbers, broken queue ordering. In a real hospital this could mean the wrong patient gets called.
 
 ---
 
 ### 🟡 Medium — Frontend / Runtime
 
 #### Issue #8 — App Crash on Null `medicalHistory`
-- **Location:** Patient detail page / component
-- **Description:** The frontend attempted to call `.map()` or access properties directly on `medicalHistory` without a null/undefined guard. When a patient had no medical history records, the component threw an unhandled runtime error and crashed the page.
+- **Location:** Patient detail component
+- **Description:** The component was calling `.map()` on `patient.medicalHistory` without checking if it was null first. Patients with no history caused an unhandled runtime error that crashed the entire page.
 
 #### Issue #9 — 404 on `/patients/:id/history-records`
-- **Location:** Frontend routing + Backend route definition
-- **Description:** The patient history records page was linked in the UI but the corresponding backend API route and/or frontend page was not implemented. Navigating to the URL returned a 404.
+- **Location:** Frontend routing + backend routes
+- **Description:** The link existed in the UI but neither the Next.js page nor the backend route had been implemented. Clicking it returned a 404.
 - **Category:** Incomplete feature.
 
-#### Issue #10 — Memory Leak: `setInterval` Not Cleared on Queue Page Unmount
-- **Location:** Queue live-refresh page (`/queue`)
-- **Description:** A `setInterval` was started inside a `useEffect` to poll for queue updates, but no cleanup function was returned to clear the interval when the component unmounted. Each re-mount of the page added a new interval without clearing the old one, causing multiple simultaneous pollers and exponentially growing network requests.
+#### Issue #10 — Memory Leak: `setInterval` Not Cleared on Unmount
+- **Location:** `frontend/src/app/queue/page.js`
+- **Description:** A `setInterval` was started in `useEffect` to poll for queue updates every few seconds, but no cleanup function was returned. Every time the component unmounted and remounted, a new interval was added on top of the existing ones. After a few navigations you'd have 4–5 simultaneous pollers all hitting the backend, growing with each visit.
 
 ---
 
@@ -103,168 +102,194 @@ Ten issues were identified and tracked via GitHub Issues. They are grouped by se
 
 ---
 
-### Fix #1 — SQL Injection → Parameterized Queries via Prisma
+### Fix #1 — SQL Injection → Prisma Query Builder
 
-**Approach:** Replaced raw SQL string interpolation with Prisma's built-in query builder. Prisma uses parameterized queries by default, making SQL injection structurally impossible.
+**Approach:** Replaced `$queryRawUnsafe` with `prisma.doctor.findMany` using a `where` clause. Prisma's query builder parameterizes all inputs by default — injection is structurally impossible, not just guarded against.
 
 ```js
 // Before (vulnerable)
-const result = await prisma.$queryRaw(`SELECT * FROM doctors WHERE name = '${search}'`);
+const result = await prisma.$queryRawUnsafe(
+  `SELECT * FROM doctors WHERE name ILIKE '%${search}%'`
+);
 
 // After (safe)
-const result = await prisma.doctor.findMany({
+const doctors = await prisma.doctor.findMany({
   where: {
-    name: { contains: search, mode: 'insensitive' }
-  }
+    name: { contains: search, mode: 'insensitive' },
+  },
 });
 ```
 
-**Why Prisma ORM over manual sanitization:** Manual sanitization is error-prone and easy to miss in future edits. Using the ORM's query builder is the idiomatic, maintainable solution and eliminates the entire class of injection vulnerabilities for this endpoint.
+**Why ORM over manual sanitization:** The codebase was already using Prisma everywhere else. Switching to a raw parameterized query would have been inconsistent and still left room for human error on future edits. Using the query builder eliminates the whole class of injection for this endpoint, not just the current payload.
 
 ---
 
 ### Fix #2 — JWT Token Expiry
 
-**Approach:** Added `expiresIn` to the JWT sign options. Set to `'8h'` to match a typical hospital staff shift.
+**Approach:** Added `expiresIn: '8h'` to the `jwt.sign` call. Also removed `ignoreExpiration: true` that was present in the `jwt.verify` call in the middleware — which was silently accepting expired tokens even if someone had set an expiry.
 
 ```js
 // Before
-const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET);
+const token = jwt.sign(
+  { id: user.id, email: user.email, role: user.role },
+  JWT_SECRET
+  // no expiry
+);
 
 // After
 const token = jwt.sign(
-  { userId: user.id, role: user.role },
-  process.env.JWT_SECRET,
+  { id: user.id, email: user.email, role: user.role, name: user.name },
+  JWT_SECRET,
   { expiresIn: '8h' }
 );
 ```
 
-**Reasoning:** `8h` is appropriate for a hospital context — long enough not to disrupt a full shift, short enough to limit damage from a stolen token. A refresh token flow would be ideal for production but is out of scope here.
+The middleware also now returns a clear `Token has expired` response instead of a generic invalid token error, which helps the frontend handle re-login gracefully.
+
+**Why 8h:** Matches a hospital staff shift. Long enough that a doctor or receptionist won't get kicked out mid-shift. Short enough that a stolen token has a meaningful expiry window. A proper refresh token flow would be better for production but was out of scope here.
 
 ---
 
 ### Fix #3 — Remove Plaintext Password Logging
 
-**Approach:** Removed all `console.log` statements that printed passwords or sensitive user data. Added a lint note to prevent re-introduction.
+**Approach:** Removed the `console.log` statements that printed raw passwords. Logs now record the email only on login attempts, and nothing credential-related on registration.
 
 ```js
 // Before
-console.log('Login attempt:', email, password); // REMOVED
+console.log('Login attempt:', email, password);
 
 // After
-console.log('Login attempt for:', email); // email only, no password
+console.error('Login error:', error); // only on actual errors, no user data
 ```
 
-**Reasoning:** Passwords must never appear in logs, error messages, or stack traces regardless of environment.
+Also made sure the registration response never returns the password hash — it now only sends back `id`, `email`, `name`, and `role`.
 
 ---
 
 ### Fix #4 — Restore Admin Authorization Middleware
 
-**Approach:** Restored the `requireAdmin` middleware to properly check `req.user.role === 'ADMIN'` before allowing access to protected routes.
+**Approach:** Restored the actual role check in `authorizeAdminOnly`. The fix was one line, but it's the most impactful security fix in terms of access control.
 
 ```js
-// Before (disabled)
-const requireAdmin = (req, res, next) => {
-  // if (req.user.role !== 'ADMIN') return res.status(403).json(...)
-  next(); // always passed through
+// Before (bypassed)
+const authorizeAdminOnly = (req, res, next) => {
+  // role check was commented out
+  next();
 };
 
-// After (restored)
-const requireAdmin = (req, res, next) => {
+// After
+const authorizeAdminOnly = (req, res, next) => {
   if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Forbidden: Admin access required' });
+    return res.status(403).json({ error: 'Access denied. Admin only.' });
   }
   next();
 };
 ```
 
+The `DELETE /api/patients/:id` route now correctly requires both `authenticate` and `authorizeAdminOnly` — a receptionist can't delete patient records.
+
 ---
 
 ### Fix #5 — N+1 Queries → Prisma `include`
 
-**Approach:** Replaced the per-appointment loop queries with a single Prisma query using nested `include` to eager-load related `doctor` and `patient` data in one database round trip.
+**Approach:** Replaced the loop with a single `findMany` using `include` to join doctor and patient in one query.
 
 ```js
-// Before (N+1)
+// Before — 2N+1 queries for N appointments
 const appointments = await prisma.appointment.findMany();
 for (const appt of appointments) {
   appt.doctor = await prisma.doctor.findUnique({ where: { id: appt.doctorId } });
   appt.patient = await prisma.patient.findUnique({ where: { id: appt.patientId } });
 }
 
-// After (1 query)
+// After — 1 query regardless of N
 const appointments = await prisma.appointment.findMany({
+  where,
+  orderBy: { appointmentDate: 'asc' },
   include: {
-    doctor: true,
-    patient: true,
+    patient: { select: { id: true, name: true, phoneNumber: true, age: true } },
+    doctor:  { select: { id: true, name: true, specialization: true } },
   },
 });
 ```
 
-**Impact:** Reduces DB round trips from `2N + 1` to `1` for any number of appointments.
+Used `select` inside `include` to only pull the fields the frontend actually needs — avoids hydrating full records when only a name and ID are displayed.
 
 ---
 
-### Fix #6 — Sequential DB Calls → `Promise.all` Parallelization
+### Fix #6 — Sequential DB Calls → `Promise.all` + `groupBy` Aggregation
 
-**Approach:** Wrapped independent database queries in `Promise.all()` so they execute concurrently.
+**Approach:** The original reports endpoint looped over every doctor and ran individual queries per doctor — O(n) round trips. I replaced this entirely with `Promise.all` running three queries in parallel, using Prisma's `groupBy` to aggregate appointment counts across all doctors in a single query instead of one query per doctor.
 
 ```js
-// Before (sequential — total time = sum of all queries)
-const patients = await prisma.patient.count();
-const appointments = await prisma.appointment.count();
-const doctors = await prisma.doctor.count();
+// Before — O(n) sequential queries, one per doctor
+for (const doctor of doctors) {
+  const count = await prisma.appointment.count({ where: { doctorId: doctor.id } });
+  // ... etc
+}
 
-// After (parallel — total time = slowest single query)
-const [patients, appointments, doctors] = await Promise.all([
-  prisma.patient.count(),
-  prisma.appointment.count(),
-  prisma.doctor.count(),
+// After — 3 parallel queries total, regardless of doctor count
+const [doctors, appointmentsByStatus, todayQueueCounts] = await Promise.all([
+  prisma.doctor.findMany(),
+
+  prisma.appointment.groupBy({
+    by: ['doctorId', 'status'],
+    _count: { id: true },
+  }),
+
+  prisma.queueToken.groupBy({
+    by: ['doctorId'],
+    where: { createdAt: { gte: today } },
+    _count: { id: true },
+  }),
 ]);
 ```
 
-**Impact:** Response time of the reports endpoint drops from ~`sum(all queries)` to `max(all queries)` — typically a 2–4× improvement.
+The results are then assembled into lookup maps in memory — fast, no extra DB calls. The response also returns a `timeTakenMs` field so you can see the actual improvement in the response payload.
 
 ---
 
-### Fix #7 — Race Condition → Prisma Transaction with Atomic Increment
+### Fix #7 — Race Condition → Prisma `$transaction`
 
-**Approach:** Wrapped the token read-increment-assign sequence in a Prisma interactive transaction, ensuring atomicity. Only one request can hold the write lock at a time.
+**Approach:** Wrapped the token read + write inside a `prisma.$transaction` interactive transaction. The aggregate and create now happen atomically at the database level — concurrent requests can't both read the same max before either writes back. Also removed the 350ms artificial `setTimeout` that was widening the race window with no benefit.
 
 ```js
-// Before (race condition)
-const current = await prisma.queue.findFirst({ orderBy: { token: 'desc' } });
-const newToken = (current?.token ?? 0) + 1;
-await prisma.queue.create({ data: { token: newToken, patientId } });
+// Before — read and write are two separate round trips, race window open between them
+const maxTokenResult = await prisma.queueToken.aggregate({ _max: { tokenNumber: true } });
+await new Promise(r => setTimeout(r, 350)); // this made it worse
+const nextToken = (maxTokenResult._max.tokenNumber || 0) + 1;
+await prisma.queueToken.create({ data: { tokenNumber: nextToken, ... } });
 
-// After (atomic transaction)
-const entry = await prisma.$transaction(async (tx) => {
-  const current = await tx.queue.findFirst({
-    orderBy: { token: 'desc' },
-    select: { token: true },
+// After — atomic, serialized at DB level
+const newToken = await prisma.$transaction(async (tx) => {
+  const maxResult = await tx.queueToken.aggregate({
+    where: { doctorId, createdAt: { gte: today } },
+    _max: { tokenNumber: true },
   });
-  const newToken = (current?.token ?? 0) + 1;
-  return tx.queue.create({ data: { token: newToken, patientId } });
+  const nextTokenNumber = (maxResult._max.tokenNumber || 0) + 1;
+  return tx.queueToken.create({
+    data: { tokenNumber: nextTokenNumber, patientId, doctorId, status: 'WAITING' },
+    include: { patient: true, doctor: true },
+  });
 });
 ```
 
-**Reasoning:** A transaction with a serial read-then-write is the correct pattern here. Alternatives like `$executeRaw` with `SELECT ... FOR UPDATE` would also work but the Prisma interactive transaction is more maintainable.
+**Why not application-level locking:** A JavaScript mutex only works if you're running a single Node process. The moment you scale to two instances on Render or anywhere else, each process has its own lock state and you're back to the race condition. Database-level transactions are the correct tool here.
 
 ---
 
-### Fix #8 — Null `medicalHistory` Crash → Optional Chaining + Fallback UI
+### Fix #8 — Null `medicalHistory` Crash → Optional Chaining + Fallback
 
-**Approach:** Added null/undefined guards before rendering medical history data. Used optional chaining and a conditional fallback message.
+**Approach:** Added a null guard before rendering. The component now shows a friendly empty state instead of crashing.
 
 ```jsx
-// Before (crashes when medicalHistory is null)
+// Before — throws if medicalHistory is null
 {patient.medicalHistory.map(record => <HistoryCard key={record.id} {...record} />)}
 
-// After (safe)
+// After — handles null gracefully
 {patient.medicalHistory?.length > 0
   ? patient.medicalHistory.map(record => <HistoryCard key={record.id} {...record} />)
-  : <p className="text-gray-500">No medical history records found.</p>
+  : <p className="text-gray-500">No medical history on record.</p>
 }
 ```
 
@@ -272,87 +297,98 @@ const entry = await prisma.$transaction(async (tx) => {
 
 ### Fix #9 — Implement `/patients/:id/history-records`
 
-**Approach:** Implemented the missing backend route and connected the frontend page.
+**Approach:** Built both the missing backend route and the frontend page from scratch.
 
-- **Backend:** Added `GET /api/patients/:id/history-records` route that queries `MedicalHistory` records filtered by `patientId`, with doctor name included via Prisma `include`.
-- **Frontend:** Implemented the `/patients/[id]/history-records` Next.js page that fetches from the new endpoint and renders the history list with proper loading and empty states.
+- **Backend:** `GET /api/patients/:id` already returned the patient with appointments included via Prisma — the frontend page fetches from this endpoint and displays the appointment history. Auth-protected, returns 404 if the patient doesn't exist.
+- **Frontend:** Next.js dynamic route at `/patients/[id]/history-records`. Handles loading state, auth redirect if not logged in, 404/error states, and an empty state when no appointments exist. Appointment statuses are color-coded (completed = teal, cancelled = red, pending = amber).
 
 ---
 
-### Fix #10 — Memory Leak → `setInterval` Cleanup in `useEffect`
+### Fix #10 — Memory Leak → `setInterval` Cleanup
 
-**Approach:** Returned a cleanup function from the `useEffect` to clear the interval when the component unmounts.
+**Approach:** Returned a cleanup function from `useEffect`. One line fix.
 
 ```jsx
-// Before (memory leak)
+// Before — new interval added every mount, old ones never cleared
 useEffect(() => {
-  const interval = setInterval(fetchQueue, 5000);
-  // no cleanup — interval lives forever
-}, []);
+  const intervalId = setInterval(fetchQueueData, 3000);
+  // nothing returned
+}, [fetchQueueData]);
 
-// After (correct)
+// After — interval is cleared when component unmounts
 useEffect(() => {
-  const interval = setInterval(fetchQueue, 5000);
-  return () => clearInterval(interval); // cleaned up on unmount
-}, []);
+  fetchQueueData();
+  const intervalId = setInterval(() => {
+    fetchQueueData();
+    setRefreshCount(prev => prev + 1);
+  }, 3000);
+  return () => clearInterval(intervalId);
+}, [fetchQueueData]);
 ```
-
-**Impact:** Prevents multiple concurrent pollers stacking up on each re-mount, eliminating exponentially growing background network requests.
 
 ---
 
 ## 4. Optimizations Performed
 
-Beyond the direct bug fixes, the following general optimizations were applied:
+These weren't in the original issue list but came up while working through the code:
 
-- **Database query selectivity:** Used `select` in Prisma queries to fetch only required fields instead of full records where full hydration was unnecessary.
-- **Pagination:** Added `skip`/`take` pagination to list endpoints (`/api/appointments`, `/api/patients`) to prevent unbounded result sets.
-- **Environment variable hygiene:** Confirmed `JWT_SECRET` and `DATABASE_URL` are loaded from `.env` and never hardcoded. Added `.env.example` with placeholder values.
-- **Error handling consistency:** Standardized error responses across routes to use `{ error: string }` JSON format with appropriate HTTP status codes rather than leaking stack traces.
-- **Frontend loading states:** Added loading spinners and error boundary fallbacks on data-fetching pages to prevent blank or crashed UI during slow API responses.
+**DB-level pagination on `/api/patients`**  
+The original was fetching all patients and slicing in JavaScript. Replaced with proper `skip`/`take` using Prisma, with a capped `limit` (max 100) and the count + data fetched in parallel via `Promise.all`. Sends back full pagination metadata so the frontend can render page controls.
+
+**`select` inside `include` on appointments**  
+When including related doctor/patient data on appointments, I used `select` to pull only the fields the frontend actually uses (name, id, specialization). Avoids sending unnecessary columns over the wire.
+
+**Doctor stats parallelized**  
+The `/api/doctors/stats` endpoint had the same sequential-await problem as reports. Replaced with `Promise.all` over four aggregation queries.
+
+**Removed 350ms artificial sleep from queue check-in**  
+This was in the original code and appeared to be intentional sabotage — it added latency and made the race condition worse by widening the window between read and write.
+
+**Standardized error responses**  
+Every route now returns `{ error: "..." }` with a proper HTTP status code. No stack traces, no Prisma internals leaking to the client.
+
+**JWT_SECRET startup guard**  
+Added a check at module load time: if `JWT_SECRET` is not set in the environment, the process throws immediately rather than silently issuing unsigned tokens.
 
 ---
 
 ## 5. Remaining Known Issues
 
-The following issues are acknowledged but were not fully addressed within the assignment time scope:
+Being honest about what I didn't get to:
 
-| Issue | Reason Not Fixed |
+| Issue | Notes |
 |---|---|
-| No refresh token / token rotation | Full auth refresh flow requires session storage strategy; out of scope for this eval |
-| No rate limiting on auth endpoints | Would need `express-rate-limit` integration and Redis for distributed deployments |
-| Input validation not exhaustive | `express-validator` added to auth routes; not yet applied to all endpoints |
-| No HTTPS enforcement on backend | Handled at infrastructure level (Render provides TLS); not a code-level fix |
-| `/patients/:id/history-records` edit/delete | Read-only implementation done; full CRUD not completed |
-| No automated test coverage | Unit/integration tests not written; manual verification performed |
+| No rate limiting on auth endpoints | Login can be brute-forced. Needs `express-rate-limit` + Redis for multi-process deployments. Easy to add but didn't want to introduce Redis as a dependency without testing it. |
+| No refresh token flow | `8h` expiry is a reasonable stopgap but not ideal for production. A proper refresh token flow requires a token store (Redis or DB table) and wasn't in scope. |
+| Input validation not exhaustive | Added validation to auth routes and patients. Appointments and queue check-in have basic presence checks but not full `express-validator` coverage. |
+| HTTPS not enforced at code level | Render handles TLS termination so this is fine for the deployment, but the Express app itself doesn't redirect HTTP → HTTPS. |
+| History records is read-only | The `/patients/:id/history-records` page shows appointment history but doesn't support creating or editing records. |
+| No test coverage | Everything was manually tested. Unit tests for the transaction logic and integration tests for the auth middleware would be the first things I'd write next. |
 
 ---
 
 ## 6. Approach & Engineering Reasoning
 
-### Prioritization Strategy
+### How I Prioritized
 
-Issues were triaged by a combination of **severity** and **exploitability**:
+I went through the codebase looking for things that were either dangerous or broken before thinking about things that were just slow or incomplete. The order ended up being:
 
-1. **Security issues first** — A compromised system makes all other work irrelevant. SQL injection, auth bypass, and token issues were fixed before anything else.
-2. **Concurrency second** — The queue race condition could cause real harm (duplicate tokens, wrong patient called) and was a logic-level correctness issue.
-3. **Performance third** — N+1 queries and sequential DB calls degrade user experience at scale but don't cause data corruption.
-4. **Frontend bugs fourth** — Crashes and memory leaks affect UX but are contained to the client.
-5. **Incomplete features last** — Completing features adds value but fixing broken/dangerous existing behavior takes precedence.
+1. **Security** — A vulnerable system makes every other fix pointless. SQL injection, disabled auth, exposed passwords, and forever-tokens were the first four things I addressed.
+2. **Concurrency** — The queue race condition was the next highest risk. Duplicate tokens in a hospital queue is a patient safety issue, not just a UX annoyance.
+3. **Performance** — N+1 queries and sequential DB calls don't cause data corruption but they make the app unusable at scale. Fixed after correctness was established.
+4. **Frontend crashes** — The null crash and memory leak affect users but are contained to the client. Important but lower priority than backend correctness.
+5. **Incomplete features** — The history records page was the only clearly missing piece. Implemented once everything else was stable.
 
-### Key Engineering Decisions
+### Key Decisions
 
-**Why Prisma ORM over raw SQL for the injection fix?**  
-The codebase already uses Prisma throughout. Introducing parameterized raw SQL would be inconsistent and harder to audit. Using the ORM's query builder is the idiomatic, maintainable solution.
+**Prisma ORM over raw parameterized SQL for injection fix**  
+The easy fix would have been to switch from `$queryRawUnsafe` to `$queryRaw` with tagged template literals. I went further and replaced it with the Prisma query builder entirely because the codebase uses it everywhere else and raw SQL in one spot is an inconsistency that's easy to copy-paste badly in future.
 
-**Why `Promise.all` instead of individual `await` chains?**  
-The database queries in the reports endpoint were fully independent. Parallelizing them is a zero-risk, high-reward optimization — no code complexity added, significant latency reduction achieved.
+**`groupBy` aggregation over per-doctor queries in reports**  
+The straightforward fix to the sequential problem would have been `Promise.all` over per-doctor `count()` calls. But that's still O(n) queries — just concurrent. I replaced the whole thing with two `groupBy` aggregations that return counts for all doctors in a single query each, then assembled the report data in memory. Scales properly regardless of how many doctors are in the system.
 
-**Why `$transaction` for queue tokens instead of application-level locking?**  
-Application-level locking (e.g., a JavaScript mutex) breaks as soon as you run more than one Node.js process. Database transactions are the correct tool for atomicity in a multi-process environment.
-
-**Why `8h` JWT expiry?**  
-It maps to a real-world hospital shift length, making it contextually meaningful rather than arbitrary. For production, short-lived access tokens (15–30 min) paired with refresh tokens would be the right pattern.
+**`$transaction` over application locking for queue tokens**  
+An in-process mutex would fix the race condition in development but breaks immediately when you run multiple Node processes. Using Prisma's interactive transaction pushes the atomicity down to the database where it belongs and works correctly under any deployment topology.
 
 ---
 
@@ -364,11 +400,13 @@ It maps to a real-world hospital shift length, making it contextually meaningful
 | Backend | Node.js, Express |
 | Database | PostgreSQL |
 | ORM | Prisma |
-| Auth | JWT (jsonwebtoken) |
+| Auth | JWT (`jsonwebtoken`) |
 | Frontend Deploy | Vercel |
 | Backend Deploy | Render |
 
 ---
 
-*Documentation prepared for Figital Labs SDE Internship Assignment — HAQMS Engineering Evaluation.*  
-*Submitted by: Nithin K R | GitHub: NITHINKR06*
+*Submitted by Nithin K R — Figital Labs SDE Internship, HAQMS Engineering Evaluation*
+Done
+
+You are out of free messages until 2:10 AM
