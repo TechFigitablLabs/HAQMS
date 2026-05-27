@@ -15,8 +15,11 @@ export default function Dashboard() {
   const { user, token, API_BASE_URL, logout, loading } = useAuth();
   const router = useRouter();
 
-    // Global State
-  const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
+  // Global State
+  const [activeTab, setActiveTab] = useState(() => {
+    const role = user?.role;
+    return role === 'ADMIN' ? 'reports' : role === 'RECEPTIONIST' ? 'patients' : 'appointments';
+  });
 
   // ==========================================
   // STATE FOR RECEPTIONIST WORKFLOWS
