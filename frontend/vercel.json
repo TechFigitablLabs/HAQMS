@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://https://haqms-8sb3.onrender.com/api"
+  },
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "https://https://haqms-8sb3.onrender.com/api/$1"
+    }
+  ]
+}
