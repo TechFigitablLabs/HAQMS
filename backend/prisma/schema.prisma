@@ -1,0 +1,109 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//enums
+
+enum Role {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+  PATIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum QueueStatus {
+  WAITING
+  CALLING
+  COMPLETED
+  SKIPPED
+}
+
+model User {
+  id       Int    @id @default(autoincrement())
+  email    String @unique
+  password String
+  name     String
+  role     Role   @default(RECEPTIONIST)
+
+  createdAt DateTime @default(now())
+}
+
+model Patient {
+  id             Int     @id @default(autoincrement())
+  name           String
+  email          String? @unique
+  phoneNumber    String
+  age            Int
+  gender         String
+  medicalHistory String?
+
+  createdAt DateTime @default(now())
+
+  appointments Appointment[]
+  queueTokens  QueueToken[]
+
+  @@index([phoneNumber])
+  @@index([name])
+}
+
+model Doctor {
+  id              Int    @id @default(autoincrement())
+  name            String
+  specialization  String
+  department      String
+  consultationFee Float
+  experience      Int
+
+  createdAt DateTime @default(now())
+
+  appointments Appointment[]
+  queueTokens  QueueToken[]
+
+  @@index([specialization])
+  @@index([name])
+}
+
+model Appointment {
+  id              Int               @id @default(autoincrement())
+  appointmentDate DateTime
+  reason          String?
+  status          AppointmentStatus @default(PENDING)
+
+  patientId Int
+  doctorId  Int
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+model QueueToken {
+  id          Int         @id @default(autoincrement())
+  tokenNumber Int
+  status      QueueStatus @default(WAITING)
+
+  patientId     Int
+  doctorId      Int
+  appointmentId Int?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([doctorId, tokenNumber, createdAt])
+  @@index([doctorId])
+  @@index([doctorId, createdAt])
+  @@index([status])
+}

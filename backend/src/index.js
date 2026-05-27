@@ -49,10 +49,17 @@ app.get('/', (req, res) => {
 // which leaks details about database types, schema layout, and file paths.
 app.use((err, req, res, next) => {
   console.error('[CRITICAL-ERROR]:', err);
-  res.status(500).json({
+res.status(err.statusCode || 500).json({
     message: 'An unexpected internal server error occurred!',
-    error: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    error:
+  process.env.NODE_ENV === 'development'
+    ? err.message
+    : 'Internal Server Error',
+
+stack:
+  process.env.NODE_ENV === 'development'
+    ? err.stack
+    : undefined,
   });
 });
 
@@ -60,7 +67,7 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
   console.log(`===================================================`);
   console.log(`   HAQMS BACKEND SERVER IS RUNNING ON PORT ${PORT}`);
-  console.log(`   ENVIRONMENT: ${process.env.NODE_ENV}`);
+  console.log(`   ENVIRONMENT: ${process.env.NODE_ENV || 'development'}`);
   console.log(`===================================================`);
 });
 
@@ -68,4 +75,7 @@ app.listen(PORT, () => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Intentionally do not exit process so candidates see unhandled promise logs
+  server.close(() => {
+    process.exit(1);
+  });
 });
