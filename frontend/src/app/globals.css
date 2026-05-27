@@ -1,76 +1,132 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
-  --card: #ffffff;
-  --card-foreground: #0f172a;
-  --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #0f766e;
-  --primary-foreground: #f8fafc;
-  --secondary: #f1f5f9;
-  --secondary-foreground: #0f172a;
-  --muted: #f1f5f9;
-  --muted-foreground: #64748b;
-  --accent: #14b8a6;
-  --accent-foreground: #0f172a;
+  --background: #07111f;
+  --foreground: #e5eef8;
+  --card: #0f1b2d;
+  --card-foreground: #f1f5f9;
+  --popover: #0f1b2d;
+  --popover-foreground: #f1f5f9;
+  --primary: #14b8a6;
+  --primary-foreground: #05211c;
+  --secondary: #14233a;
+  --secondary-foreground: #e5eef8;
+  --muted: #14233a;
+  --muted-foreground: #9fb2cc;
+  --accent: #0f766e;
+  --accent-foreground: #effcf9;
   --destructive: #ef4444;
   --destructive-foreground: #f8fafc;
-  --border: #e2e8f0;
-  --input: #e2e8f0;
-  --ring: #0f766e;
+  --border: #223247;
+  --input: #223247;
+  --ring: #14b8a6;
   --radius: 0.75rem;
 }
 
 .dark {
-  --background: #0f172a;
-  --foreground: #f8fafc;
-  --card: #1e293b;
+  --background: #07111f;
+  --foreground: #e5eef8;
+  --card: #0f1b2d;
   --card-foreground: #f8fafc;
-  --popover: #1e293b;
+  --popover: #0f1b2d;
   --popover-foreground: #f8fafc;
   --primary: #14b8a6;
-  --primary-foreground: #0f172a;
-  --secondary: #334155;
+  --primary-foreground: #05211c;
+  --secondary: #14233a;
   --secondary-foreground: #f8fafc;
-  --muted: #334155;
-  --muted-foreground: #94a3b8;
+  --muted: #14233a;
+  --muted-foreground: #9fb2cc;
   --accent: #0f766e;
   --accent-foreground: #f8fafc;
   --destructive: #f87171;
   --destructive-foreground: #0f172a;
-  --border: #334155;
-  --input: #334155;
+  --border: #223247;
+  --input: #223247;
   --ring: #14b8a6;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
+  background-image:
+    radial-gradient(circle at 12% 18%, rgba(20, 184, 166, 0.16) 0%, transparent 28%),
+    radial-gradient(circle at 88% 82%, rgba(15, 118, 110, 0.18) 0%, transparent 30%),
+    linear-gradient(180deg, #07111f 0%, #091425 100%);
+  background-attachment: fixed;
 }
 
 /* Custom premium styles */
 .glass {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(13, 25, 42, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  box-shadow: 0 18px 50px rgba(2, 6, 23, 0.32);
 }
 
 .dark .glass {
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(13, 25, 42, 0.8);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .gradient-bg {
-  background: radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.15) 0%, transparent 40%),
-              radial-gradient(circle at 90% 80%, rgba(15, 118, 110, 0.15) 0%, transparent 40%);
+  background: radial-gradient(circle at 10% 20%, rgba(20, 184, 166, 0.2) 0%, transparent 36%),
+              radial-gradient(circle at 90% 80%, rgba(15, 118, 110, 0.18) 0%, transparent 36%),
+              linear-gradient(180deg, #07111f 0%, #091425 100%);
+}
+
+body.haqms-theme .text-slate-400 {
+  color: #9fb2cc;
+}
+
+body.haqms-theme .text-slate-500 {
+  color: #b4c3d8;
+}
+
+body.haqms-theme .text-slate-600 {
+  color: #d0daea;
+}
+
+body.haqms-theme .text-slate-700 {
+  color: #e4ebf6;
+}
+
+body.haqms-theme .text-slate-800 {
+  color: #f3f7fc;
+}
+
+body.haqms-theme .text-slate-900 {
+  color: #ffffff;
+}
+
+body.haqms-theme .bg-slate-50,
+body.haqms-theme .dark\:bg-slate-50 {
+  background-color: rgba(15, 27, 45, 0.85);
+}
+
+body.haqms-theme .bg-slate-100 {
+  background-color: rgba(20, 35, 58, 0.9);
+}
+
+body.haqms-theme .bg-white\/50 {
+  background-color: rgba(15, 27, 45, 0.7);
+}
+
+body.haqms-theme .border-slate-200 {
+  border-color: rgba(148, 163, 184, 0.18);
+}
+
+body.haqms-theme .border-slate-300 {
+  border-color: rgba(148, 163, 184, 0.3);
 }
 
 .glow-btn {
