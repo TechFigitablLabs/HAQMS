@@ -117,4 +117,5 @@ model QueueToken {
   @@index([doctorId])
   @@index([status])
   @@index([createdAt])
+  @@unique([doctorId, tokenNumber])
 }

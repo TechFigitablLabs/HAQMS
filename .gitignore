@@ -1,22 +1,42 @@
-frontend/node_modules/
-frontend/dist/
-backend/node_modules/
-backend/dist/
-frontend/.next/
+# Node modules
+node_modules/
+**/node_modules/
 
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
 
-# Ignore environment variable files
-frontend/.env
-backend/.env
-*.evn.*
+# Next.js
+.next/
+out/
 
-# Ignore log files
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 *.log
 
-# Ignore IDE specific files
+# Coverage and cache
+coverage/
+.cache/
+/.parcel-cache/
+
+# IDEs and editors
 .vscode/
 .idea/
-# Ignore OS specific files
+
+# OS files
 .DS_Store
 Thumbs.db
+
+# Packages
+*.tgz
 
