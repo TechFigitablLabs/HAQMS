@@ -6,7 +6,9 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/queue
-router.get('/', authenticate, async (req, res) => {
+// Public read endpoint for the live monitor board.
+// Mutating queue actions remain protected below.
+router.get('/', async (req, res) => {
   try {
     const { doctorId, status } = req.query;
 
