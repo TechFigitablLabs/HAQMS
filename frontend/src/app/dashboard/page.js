@@ -15,28 +15,7 @@ export default function Dashboard() {
   const { user, token, API_BASE_URL, logout, loading } = useAuth();
   const router = useRouter();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
-  }, [loading, user, router]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-8 w-8 mx-auto mb-4 rounded-full bg-teal-200 animate-pulse" />
-          <p className="text-sm text-slate-500">Loading user session…</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  // Global State
+    // Global State
   const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
 
   // ==========================================
@@ -81,6 +60,29 @@ export default function Dashboard() {
   const [adminReportData, setAdminReportData] = useState(null);
   const [adminReportLoading, setAdminReportLoading] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [loading, user, router]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 mx-auto mb-4 rounded-full bg-teal-200 animate-pulse" />
+          <p className="text-sm text-slate-500">Loading user session…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+
 
   // ==========================================
   // RECEPTIONIST FUNCTIONS
