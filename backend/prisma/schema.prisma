@@ -7,103 +7,74 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-//enums
-
-enum Role {
-  ADMIN
-  DOCTOR
-  RECEPTIONIST
-  PATIENT
-}
-
-enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  COMPLETED
-  CANCELLED
-}
-
-enum QueueStatus {
-  WAITING
-  CALLING
-  COMPLETED
-  SKIPPED
-}
-
 model User {
-  id       Int    @id @default(autoincrement())
+  id       String @id @default(cuid())
   email    String @unique
   password String
   name     String
-  role     Role   @default(RECEPTIONIST)
+  role     String @default("RECEPTIONIST")
 
-  createdAt DateTime @default(now())
-}
-
-model Patient {
-  id             Int     @id @default(autoincrement())
-  name           String
-  email          String? @unique
-  phoneNumber    String
-  age            Int
-  gender         String
-  medicalHistory String?
-
-  createdAt DateTime @default(now())
-
-  appointments Appointment[]
-  queueTokens  QueueToken[]
-
-  @@index([phoneNumber])
-  @@index([name])
+  @@index([role])
 }
 
 model Doctor {
-  id              Int    @id @default(autoincrement())
+  id              String        @id @default(cuid())
   name            String
   specialization  String
-  department      String
-  consultationFee Float
-  experience      Int
-
-  createdAt DateTime @default(now())
-
-  appointments Appointment[]
-  queueTokens  QueueToken[]
+  department      String?
+  consultationFee Int           @default(0)
+  experience      Int           @default(0)
+  appointments    Appointment[]
+  queueTokens     QueueToken[]
 
   @@index([specialization])
+  @@index([department])
+}
+
+model Patient {
+  id             String        @id @default(cuid())
+  name           String
+  email          String?       @unique
+  phoneNumber    String        @unique
+  age            Int
+  gender         String
+  medicalHistory String?
+  appointments   Appointment[]
+  queueTokens    QueueToken[]
+
   @@index([name])
+  @@index([gender])
 }
 
 model Appointment {
-  id              Int               @id @default(autoincrement())
+  id              String       @id @default(cuid())
+  patientId       String
+  doctorId        String
   appointmentDate DateTime
   reason          String?
-  status          AppointmentStatus @default(PENDING)
+  status          String       @default("PENDING")
+  doctor          Doctor       @relation(fields: [doctorId], references: [id])
+  patient         Patient      @relation(fields: [patientId], references: [id])
+  queueToken      QueueToken[]
 
-  patientId Int
-  doctorId  Int
-
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  @@index([doctorId, appointmentDate])
+  @@index([patientId])
+  @@index([status])
+  @@index([appointmentDate])
 }
 
 model QueueToken {
-  id          Int         @id @default(autoincrement())
-  tokenNumber Int
-  status      QueueStatus @default(WAITING)
-
-  patientId     Int
-  doctorId      Int
-  appointmentId Int?
-
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
+  id            String       @id @default(cuid())
+  tokenNumber   Int
+  patientId     String
+  doctorId      String
+  appointmentId String?
+  status        String       @default("WAITING")
+  createdAt     DateTime     @default(now())
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  doctor        Doctor       @relation(fields: [doctorId], references: [id])
+  patient       Patient      @relation(fields: [patientId], references: [id])
 
   @@unique([doctorId, tokenNumber, createdAt])
-  @@index([doctorId])
   @@index([doctorId, createdAt])
-  @@index([status])
 }
