@@ -22,7 +22,17 @@ export default function Dashboard() {
     }
   }, [user]);
 
-  if (!user) return null;
+  // Render a lightweight loading placeholder during initial hydration
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="h-8 w-8 mx-auto mb-4 rounded-full bg-teal-200 animate-pulse" />
+          <p className="text-sm text-slate-500">Loading user session…</p>
+        </div>
+      </div>
+    );
+  }
 
   // Global State
   const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
