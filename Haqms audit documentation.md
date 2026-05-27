@@ -1,8 +1,7 @@
 # HAQMS — Security & Performance Audit Documentation
 
 **Author:** Nithin K R  
-**GitHub:** [NITHINKR06/HAQMS](https://github.com/NITHINKR06/HAQMS)  
-**Branch:** [`fixes/security-performance-audit`](https://github.com/NITHINKR06/HAQMS/tree/fixes/security-performance-audit)  
+**GitHub:** [NITHINKR06/HAQMS](https://github.com/NITHINKR06/HAQMS)   
 **Frontend (Live):** https://haqmsui.vercel.app  
 **Backend (Live):** https://haqms-8sb3.onrender.com  
 **Assignment:** Figital Labs — Full Stack Web Development Internship (HAQMS Engineering Evaluation)
