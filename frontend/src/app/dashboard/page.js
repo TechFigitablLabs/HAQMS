@@ -12,18 +12,16 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, token, API_BASE_URL, logout } = useAuth();
+  const { user, token, API_BASE_URL, logout, loading } = useAuth();
   const router = useRouter();
 
-  // Navigation Guard
   useEffect(() => {
-    if (!user) {
+    if (!loading && !user) {
       router.push('/login');
     }
-  }, [user]);
+  }, [loading, user, router]);
 
-  // Render a lightweight loading placeholder during initial hydration
-  if (!user) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -32,6 +30,10 @@ export default function Dashboard() {
         </div>
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   // Global State
