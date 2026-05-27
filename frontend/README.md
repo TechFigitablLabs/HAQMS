@@ -5,6 +5,8 @@ This is the Next.js client for the Hospital Appointment & Queue Management Syste
 ## 🚀 Running the Client
 The client runs on port `3000` by default.
 
+Set `NEXT_PUBLIC_API_URL` to your backend API base URL before starting the client. For local development, this is typically `http://localhost:5000/api`.
+
 Start the development server:
 ```bash
 npm run dev
