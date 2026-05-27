@@ -11,6 +11,9 @@
     "prisma:seed": "node prisma/seed.js",
     "db:setup": "prisma migrate dev && node prisma/seed.js"
   },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "dependencies": {
     "@prisma/client": "^5.14.0",
     "bcryptjs": "^2.4.3",
