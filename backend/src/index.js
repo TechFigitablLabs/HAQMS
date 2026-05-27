@@ -12,6 +12,11 @@ const appointmentRoutes = require('./routes/appointments');
 const queueRoutes = require('./routes/queue');
 const reportRoutes = require('./routes/reports');
 
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

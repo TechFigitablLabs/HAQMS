@@ -5,7 +5,7 @@ const { PrismaClient } = require('@prisma/client');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-secret-key-12345!!!';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
