@@ -6,43 +6,44 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  const hashedPassword = await bcrypt.hash('password123', 10);
-
   const users = [
     {
       email: 'admin@haqms.com',
+      password: 'password123',
       name: 'Admin User',
       role: 'ADMIN'
     },
     {
       email: 'reception1@haqms.com',
+      password: 'password123',
       name: 'Reception User',
       role: 'RECEPTIONIST'
     },
     {
       email: 'doctor1@haqms.com',
+      password: 'password123',
       name: 'Doctor User',
       role: 'DOCTOR'
     }
   ];
 
-  for (const userData of users) {
-    const existing = await prisma.user.findUnique({
-      where: { email: userData.email }
+  for (const u of users) {
+    const hashedPassword = await bcrypt.hash(u.password, 10);
+
+    await prisma.user.upsert({
+      where: { email: u.email },
+      update: {
+        password: hashedPassword
+      },
+      create: {
+        email: u.email,
+        password: hashedPassword,
+        name: u.name,
+        role: u.role
+      }
     });
 
-    if (!existing) {
-      const user = await prisma.user.create({
-        data: {
-          ...userData,
-          password: hashedPassword
-        }
-      });
-
-      console.log(`Created: ${user.email}`);
-    } else {
-      console.log(`Already exists: ${userData.email}`);
-    }
+    console.log(`Updated: ${u.email}`);
   }
 }
 
