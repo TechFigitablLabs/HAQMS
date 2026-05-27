@@ -38,7 +38,12 @@ router.post('/register', async (req, res) => {
     // This is a major security flaw.
     res.status(201).json({
       message: 'User registered successfully',
-      user,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      },
     });
   } catch (error) {
     // IMPROPER ERROR HANDLING: Leaking database errors and details
