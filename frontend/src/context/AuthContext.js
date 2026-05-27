@@ -53,8 +53,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       // Inconsistent API returns nested success format for login
-      const receivedToken = data.data.token;
-      const receivedUser = data.data.user;
+      // FIX: Backend now returns flat { token, user } instead of nested data.data
+      const receivedToken = data.token;
+      const receivedUser = data.user;
 
       // SECURITY ISSUE: Storing sensitive auth credentials directly in LocalStorage!
       localStorage.setItem('haqms_token', receivedToken);
