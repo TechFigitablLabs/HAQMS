@@ -9,13 +9,13 @@ HAQMS is a monorepo. **Do not deploy from the repo root unless you use the root 
 | Setting | Value |
 |--------|--------|
 | **Root Directory** | `backend` |
-| **Start command** | (auto) `npx prisma migrate deploy && node src/index.js` via `backend/railpack.json` |
+| **Start command** | (auto) `node scripts/start-prod.js` via `backend/railpack.json` |
 
 **Environment variables:**
 
 | Variable | Example |
 |----------|---------|
-| `DATABASE_URL` | PostgreSQL URL from Railway Postgres plugin |
+| `DATABASE_URL` | PostgreSQL URL from Railway Postgres plugin, or one of `POSTGRES_URL`, `POSTGRES_URL_NON_POOLING`, `DATABASE_PRIVATE_URL`, `POSTGRESQL_URL` |
 | `JWT_SECRET` | Long random string |
 | `NODE_ENV` | `production` |
 | `PORT` | Set by Railway (do not hardcode) |

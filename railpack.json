@@ -10,6 +10,6 @@
     }
   },
   "deploy": {
-    "startCommand": "sh -c \"cd backend && npx prisma migrate deploy && node src/index.js\""
+    "startCommand": "sh -c \"cd backend && node scripts/start-prod.js\""
   }
 }
