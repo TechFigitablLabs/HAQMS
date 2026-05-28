@@ -756,9 +756,8 @@ export default function Dashboard() {
               </p>
 
               <div className="space-y-6">
-                <div className="p-4 rounded-xl border border-teal-500/25 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
-                  <strong>Token Generation Engine Note:</strong> Direct arrivals bypass appointments. The token engine automatically fetches the current days maximum token size and increments. 
-                  <span className="block mt-1 font-bold text-rose-500 uppercase tracking-wide">Warning: Vulnerable to check-in race conditions!</span>
+                <div className="p-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
+                  <strong>Token generation:</strong> Direct walk-ins bypass appointments. The server assigns the next token for today inside a database transaction, with a unique constraint on physician + token number + date and automatic retry on conflict—so concurrent check-ins cannot receive duplicate numbers.
                 </div>
 
                 <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">

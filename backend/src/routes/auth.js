@@ -93,6 +93,12 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    if (error.code === 'P1001' || error.message?.includes("Can't reach database")) {
+      return res.status(503).json({
+        error:
+          'Database is unavailable. Start Docker Desktop, then run: npm run docker:db',
+      });
+    }
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
