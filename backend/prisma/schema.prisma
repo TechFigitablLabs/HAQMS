@@ -1,112 +1,124 @@
 // This is the Prisma schema for HAQMS.
-// FIX: Added missing indexes and unique constraints.
+// FIX: Added missing indexes and unique constraints for production PostgreSQL.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  RECEPTIONIST
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum QueueStatus {
+  WAITING
+  CALLING
+  COMPLETED
+  SKIPPED
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   email     String   @unique
   password  String
   name      String
-  role      String   @default("RECEPTIONIST")
+  role      Role     @default(RECEPTIONIST)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   doctor    Doctor?
 }
 
 model Doctor {
-  id              String         @id @default(cuid())
+  id              String         @id @default(uuid())
+  userId          String?        @unique
+  user            User?          @relation(fields: [userId], references: [id])
   name            String
   specialization  String
   department      String
-  experience      Int
   consultationFee Float
-  availableFrom   String
-  availableTo     String
-  userId          String?        @unique
-  user            User?          @relation(fields: [userId], references: [id])
-  appointments    Appointment[]
-  queueTokens     QueueToken[]
+  experience      Int
+  availableFrom   String         @default("09:00")
+  availableTo     String         @default("17:00")
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
+  appointments    Appointment[]
+  queueTokens     QueueToken[]
 
-  // FIX: Index on specialization and department — speeds up filtered lookups
-  @@index([specialization])
+  // FIX: Indexes on department and specialization to prevent full-table scans
   @@index([department])
+  @@index([specialization])
 }
 
 model Patient {
-  id             String        @id @default(cuid())
+  id             String        @id @default(uuid())
   name           String
   email          String?
   phoneNumber    String
   age            Int
   gender         String
-  medicalHistory String?
-  appointments   Appointment[]
-  queueTokens    QueueToken[]
+  medicalHistory String?       // Nullable — intentional crash trigger for frontend bug
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  appointments   Appointment[]
+  queueTokens    QueueToken[]
 
-  // FIX: Indexes on searchable fields — name, phoneNumber, email for fast ILIKE lookups
+  // FIX: Indexes on searchable fields for fast lookups
   @@index([name])
   @@index([phoneNumber])
   @@index([email])
 }
 
 model Appointment {
-  id              String            @id @default(cuid())
+  id              String            @id @default(uuid())
   patientId       String
-  doctorId        String
-  appointmentDate DateTime
-  reason          String?
-  status          String            @default("PENDING")
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId        String
   doctor          Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  queueToken      QueueToken?
+  appointmentDate DateTime
+  reason          String            @default("")
+  status          AppointmentStatus @default(PENDING)
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
+  queueTokens     QueueToken[]
 
-  // FIX: Index on doctorId + appointmentDate — the duplicate-booking check and date
-  // range queries use this composite index for fast lookups.
-  // FIX: Index on status — frequently filtered in WHERE clauses.
-  @@index([doctorId, appointmentDate])
-  @@index([patientId])
-  @@index([status])
-}
+  // FIX: Unique constraint on doctorId and appointmentDate to prevent double-booking
+  @@unique([doctorId, appointmentDate])
 
-model QueueToken {
-  id            String      @id @default(cuid())
-  tokenNumber   Int
-  patientId     String
-  doctorId      String
-  appointmentId String?     @unique
-  status        String      @default("WAITING")
-  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  doctor        Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // FIX: Unique constraint on (doctorId, tokenNumber, date-partition).
-  // Prevents duplicate token numbers for the same doctor on the same day
-  // at the DB level — a last line of defence even if the application layer fails.
-  // Note: PostgreSQL doesn't support function-based unique indexes in Prisma directly,
-  // so we use a composite unique on (doctorId, tokenNumber) and rely on the transaction
-  // in the check-in route to scope per-day. For a full solution a DB migration with a
-  // partial index `WHERE createdAt >= today` can be added manually.
-  @@unique([doctorId, tokenNumber])
-
-  // FIX: Index on status — queue board filters by WAITING/CALLING frequently.
+  // FIX: Indexes on doctorId, patientId, and status to optimize common filters
   @@index([doctorId, status])
   @@index([patientId])
 }
 
+model QueueToken {
+  id            String      @id @default(uuid())
+  tokenNumber   Int
+  patientId     String
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor          Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointmentId String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  status        QueueStatus @default(WAITING)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
+  // FIX: Unique constraint to prevent duplicate token numbers for the same doctor
+  @@unique([doctorId, tokenNumber])
+
+  // FIX: Indexes on doctorId + createdAt and status to optimize daily queue queries
+  @@index([doctorId, createdAt])
+  @@index([status])
+}

@@ -4,190 +4,440 @@ const bcrypt = require('bcryptjs');
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('Clearing database...');
-  await prisma.queueToken.deleteMany();
-  await prisma.appointment.deleteMany();
-  await prisma.patient.deleteMany();
-  await prisma.doctor.deleteMany();
-  await prisma.user.deleteMany();
+  console.log('🌱 Seeding HAQMS database...');
 
-  console.log('Seeding roles & user credentials...');
-  
-  // Hashed password for users
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash('password123', salt);
+  // ─── Users ────────────────────────────────────────────────────────────────
+  const hashedPassword = await bcrypt.hash('password123', 10);
 
-  // 1. Admin User
-  const adminUser = await prisma.user.create({
-    data: {
-      name: 'System Admin',
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@haqms.com' },
+    update: {},
+    create: {
       email: 'admin@haqms.com',
       password: hashedPassword,
+      name: 'System Administrator',
       role: 'ADMIN',
     },
   });
 
-  // 2. Receptionist User
-  const receptionistUser = await prisma.user.create({
-    data: {
-      name: 'Receptionist Sarah',
+  const receptionist = await prisma.user.upsert({
+    where: { email: 'reception1@haqms.com' },
+    update: {},
+    create: {
       email: 'reception1@haqms.com',
       password: hashedPassword,
+      name: 'Sarah Connor',
       role: 'RECEPTIONIST',
     },
   });
 
-  // 3. Doctor User
-  const doctorUser = await prisma.user.create({
-    data: {
-      name: 'Dr. Gregory House',
+  const doctorUser1 = await prisma.user.upsert({
+    where: { email: 'doctor1@haqms.com' },
+    update: {},
+    create: {
       email: 'doctor1@haqms.com',
       password: hashedPassword,
+      name: 'Dr. Gregory House',
       role: 'DOCTOR',
     },
   });
 
-  console.log('Seeding doctors registry...');
-  // Primary Doctor linked to Doctor User
-  const docHouse = await prisma.doctor.create({
-    data: {
+  const doctorUser2 = await prisma.user.upsert({
+    where: { email: 'doctor2@haqms.com' },
+    update: {},
+    create: {
+      email: 'doctor2@haqms.com',
+      password: hashedPassword,
+      name: 'Dr. Meredith Grey',
+      role: 'DOCTOR',
+    },
+  });
+
+  const doctorUser3 = await prisma.user.upsert({
+    where: { email: 'doctor3@haqms.com' },
+    update: {},
+    create: {
+      email: 'doctor3@haqms.com',
+      password: hashedPassword,
+      name: 'Dr. John Carter',
+      role: 'DOCTOR',
+    },
+  });
+
+  console.log('✅ Users seeded');
+
+  // ─── Doctors ──────────────────────────────────────────────────────────────
+  const doctor1 = await prisma.doctor.upsert({
+    where: { userId: doctorUser1.id },
+    update: {},
+    create: {
+      userId: doctorUser1.id,
       name: 'Dr. Gregory House',
-      specialization: 'Diagnostic Medicine',
-      department: 'Diagnostics',
-      consultationFee: 150,
+      specialization: 'Diagnostics',
+      department: 'Internal Medicine',
+      consultationFee: 250,
       experience: 20,
       availableFrom: '09:00',
       availableTo: '17:00',
-      userId: doctorUser.id,
     },
   });
 
-  // Additional mock doctor
-  const doctorUser2 = await prisma.user.create({
-    data: {
-      name: 'Dr. John Watson',
-      email: 'doctor2@haqms.com',
-      password: hashedPassword,
-      role: 'DOCTOR',
-    },
-  });
-
-  const docWatson = await prisma.doctor.create({
-    data: {
-      name: 'Dr. John Watson',
+  const doctor2 = await prisma.doctor.upsert({
+    where: { userId: doctorUser2.id },
+    update: {},
+    create: {
+      userId: doctorUser2.id,
+      name: 'Dr. Meredith Grey',
       specialization: 'General Surgery',
       department: 'Surgery',
-      consultationFee: 120,
+      consultationFee: 320,
       experience: 12,
+      availableFrom: '08:00',
+      availableTo: '16:00',
+    },
+  });
+
+  const doctor3 = await prisma.doctor.upsert({
+    where: { userId: doctorUser3.id },
+    update: {},
+    create: {
+      userId: doctorUser3.id,
+      name: 'Dr. John Carter',
+      specialization: 'Emergency Medicine',
+      department: 'Emergency',
+      consultationFee: 180,
+      experience: 8,
       availableFrom: '10:00',
       availableTo: '18:00',
-      userId: doctorUser2.id,
     },
   });
 
-  console.log('Seeding patient directory...');
-  // Seed patients
-  const patient1 = await prisma.patient.create({
+  // Extra doctors not linked to a login account
+  const doctor4 = await prisma.doctor.create({
     data: {
-      name: 'Bruce Wayne',
-      email: 'bruce@wayne.com',
-      phoneNumber: '555-0199',
-      age: 38,
-      gender: 'Male',
-      medicalHistory: 'Cardiovascular risk, fracture history.',
+      name: 'Dr. Lisa Cuddy',
+      specialization: 'Endocrinology',
+      department: 'Internal Medicine',
+      consultationFee: 210,
+      experience: 15,
+      availableFrom: '09:00',
+      availableTo: '17:00',
     },
   });
 
-  const patient2 = await prisma.patient.create({
+  const doctor5 = await prisma.doctor.create({
     data: {
-      name: 'Clark Kent',
-      email: 'clark@dailyplanet.com',
-      phoneNumber: '555-0144',
-      age: 35,
-      gender: 'Male',
-      medicalHistory: null, // Test nullable medical history
+      name: 'Dr. Perry Cox',
+      specialization: 'Cardiology',
+      department: 'Cardiology',
+      consultationFee: 290,
+      experience: 18,
+      availableFrom: '08:30',
+      availableTo: '16:30',
     },
   });
 
-  const patient3 = await prisma.patient.create({
-    data: {
-      name: 'Selina Kyle',
-      email: 'selina@gmail.com',
-      phoneNumber: '555-0177',
-      age: 30,
-      gender: 'Female',
-      medicalHistory: 'Asthma.',
-    },
-  });
+  console.log('✅ Doctors seeded');
 
-  const patient4 = await prisma.patient.create({
-    data: {
-      name: 'Diana Prince',
-      email: null, // Nullable email
-      phoneNumber: '555-0122',
-      age: 28,
-      gender: 'Female',
-      medicalHistory: null, // Nullable history
-    },
-  });
+  // ─── Patients ─────────────────────────────────────────────────────────────
+  const patients = await Promise.all([
+    // Patients WITH medical history
+    prisma.patient.create({
+      data: {
+        name: 'Alice Johnson',
+        email: 'alice.j@email.com',
+        phoneNumber: '555-0101',
+        age: 34,
+        gender: 'Female',
+        medicalHistory: 'Hypertension, managed with Lisinopril. Seasonal allergies. No known drug allergies.',
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Robert Martinez',
+        email: 'rob.m@email.com',
+        phoneNumber: '555-0102',
+        age: 52,
+        gender: 'Male',
+        medicalHistory: 'Type 2 Diabetes (on Metformin). History of mild angina. Non-smoker.',
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Emily Davis',
+        phoneNumber: '555-0103',
+        age: 28,
+        gender: 'Female',
+        medicalHistory: 'Asthma (uses Salbutamol inhaler PRN). History of appendectomy (2019).',
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Michael Thompson',
+        email: 'michael.t@email.com',
+        phoneNumber: '555-0104',
+        age: 45,
+        gender: 'Male',
+        medicalHistory: 'Hypercholesterolemia on Atorvastatin. Former smoker. Mild sleep apnea.',
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Sophia Williams',
+        email: 'sophia.w@email.com',
+        phoneNumber: '555-0105',
+        age: 61,
+        gender: 'Female',
+        medicalHistory: 'Osteoarthritis in both knees. Post-menopause HRT. Glaucoma (controlled).',
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'James Anderson',
+        phoneNumber: '555-0106',
+        age: 39,
+        gender: 'Male',
+        medicalHistory: 'Anxiety disorder (on Sertraline). Eczema flare-ups. No surgical history.',
+      },
+    }),
+    // Patients WITHOUT medical history — triggers frontend crash bug
+    prisma.patient.create({
+      data: {
+        name: 'Bruce Wayne',
+        email: 'bruce@wayneenterprises.com',
+        phoneNumber: '555-0199',
+        age: 35,
+        gender: 'Male',
+        medicalHistory: null,
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Clark Kent',
+        email: 'clark.kent@dailyplanet.com',
+        phoneNumber: '555-0198',
+        age: 32,
+        gender: 'Male',
+        medicalHistory: null,
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Diana Prince',
+        email: 'diana@themyscira.org',
+        phoneNumber: '555-0197',
+        age: 29,
+        gender: 'Female',
+        medicalHistory: null,
+      },
+    }),
+    prisma.patient.create({
+      data: {
+        name: 'Peter Parker',
+        phoneNumber: '555-0196',
+        age: 23,
+        gender: 'Male',
+        medicalHistory: 'History of wrist fractures (bilateral). Heightened sensory response noted.',
+      },
+    }),
+  ]);
 
-  console.log('Seeding appointment schedule...');
-  // Add appointments
-  const dateToday = new Date();
-  dateToday.setHours(10, 0, 0, 0);
+  console.log(`✅ ${patients.length} patients seeded`);
 
-  const app1 = await prisma.appointment.create({
-    data: {
-      patientId: patient1.id,
-      doctorId: docHouse.id,
-      appointmentDate: dateToday,
-      reason: 'Chronic chest discomfort',
-      status: 'PENDING',
-    },
-  });
+  // ─── Appointments ─────────────────────────────────────────────────────────
+  const today = new Date();
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
 
-  const dateTomorrow = new Date();
-  dateTomorrow.setDate(dateTomorrow.getDate() + 1);
-  dateTomorrow.setHours(11, 0, 0, 0);
+  const makeDateTime = (base, hour, minute = 0) => {
+    const d = new Date(base);
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  };
 
-  const app2 = await prisma.appointment.create({
-    data: {
-      patientId: patient3.id,
-      doctorId: docWatson.id,
-      appointmentDate: dateTomorrow,
-      reason: 'Suture removal post surgery',
-      status: 'PENDING',
-    },
-  });
+  const appointments = await Promise.all([
+    // Today's appointments
+    prisma.appointment.create({
+      data: {
+        patientId: patients[0].id,
+        doctorId: doctor1.id,
+        appointmentDate: makeDateTime(today, 9, 0),
+        reason: 'Routine diagnostic review',
+        status: 'PENDING',
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        patientId: patients[1].id,
+        doctorId: doctor1.id,
+        appointmentDate: makeDateTime(today, 10, 30),
+        reason: 'Follow-up on blood sugar management',
+        status: 'PENDING',
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        patientId: patients[2].id,
+        doctorId: doctor2.id,
+        appointmentDate: makeDateTime(today, 9, 30),
+        reason: 'Pre-surgical consultation',
+        status: 'PENDING',
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        patientId: patients[3].id,
+        doctorId: doctor2.id,
+        appointmentDate: makeDateTime(today, 11, 0),
+        reason: 'Chest pain evaluation',
+        status: 'COMPLETED',
+      },
+    }),
+    // Bruce Wayne — no medical history (crash trigger)
+    prisma.appointment.create({
+      data: {
+        patientId: patients[6].id,
+        doctorId: doctor1.id,
+        appointmentDate: makeDateTime(today, 14, 0),
+        reason: 'General check-up',
+        status: 'PENDING',
+      },
+    }),
+    // Clark Kent — no medical history (crash trigger)
+    prisma.appointment.create({
+      data: {
+        patientId: patients[7].id,
+        doctorId: doctor3.id,
+        appointmentDate: makeDateTime(today, 13, 0),
+        reason: 'Annual physical',
+        status: 'PENDING',
+      },
+    }),
+    // Yesterday (completed)
+    prisma.appointment.create({
+      data: {
+        patientId: patients[4].id,
+        doctorId: doctor1.id,
+        appointmentDate: makeDateTime(yesterday, 10, 0),
+        reason: 'Knee pain assessment',
+        status: 'COMPLETED',
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        patientId: patients[5].id,
+        doctorId: doctor2.id,
+        appointmentDate: makeDateTime(yesterday, 14, 0),
+        reason: 'Dermatological review',
+        status: 'COMPLETED',
+      },
+    }),
+    // Tomorrow
+    prisma.appointment.create({
+      data: {
+        patientId: patients[9].id,
+        doctorId: doctor3.id,
+        appointmentDate: makeDateTime(tomorrow, 10, 0),
+        reason: 'Wrist pain and mobility assessment',
+        status: 'PENDING',
+      },
+    }),
+    prisma.appointment.create({
+      data: {
+        patientId: patients[8].id,
+        doctorId: doctor2.id,
+        appointmentDate: makeDateTime(tomorrow, 11, 30),
+        reason: 'Minor laceration suture removal',
+        status: 'PENDING',
+      },
+    }),
+    // Cancelled
+    prisma.appointment.create({
+      data: {
+        patientId: patients[0].id,
+        doctorId: doctor3.id,
+        appointmentDate: makeDateTime(today, 15, 0),
+        reason: 'Blood pressure monitoring',
+        status: 'CANCELLED',
+      },
+    }),
+  ]);
 
-  console.log('Seeding live queue tokens...');
-  // Seed queue tokens for the dashboard
-  await prisma.queueToken.create({
-    data: {
-      tokenNumber: 1,
-      patientId: patient1.id,
-      doctorId: docHouse.id,
-      appointmentId: app1.id,
-      status: 'CALLING',
-    },
-  });
+  console.log(`✅ ${appointments.length} appointments seeded`);
 
-  await prisma.queueToken.create({
-    data: {
-      tokenNumber: 2,
-      patientId: patient2.id,
-      doctorId: docHouse.id,
-      appointmentId: null,
-      status: 'WAITING',
-    },
-  });
+  // ─── Queue Tokens ──────────────────────────────────────────────────────────
+  await Promise.all([
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 1,
+        patientId: patients[0].id,
+        doctorId: doctor1.id,
+        appointmentId: appointments[0].id,
+        status: 'CALLING',
+      },
+    }),
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 2,
+        patientId: patients[1].id,
+        doctorId: doctor1.id,
+        appointmentId: appointments[1].id,
+        status: 'WAITING',
+      },
+    }),
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 3,
+        patientId: patients[6].id,
+        doctorId: doctor1.id,
+        status: 'WAITING',
+      },
+    }),
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 1,
+        patientId: patients[2].id,
+        doctorId: doctor2.id,
+        appointmentId: appointments[2].id,
+        status: 'CALLING',
+      },
+    }),
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 2,
+        patientId: patients[8].id,
+        doctorId: doctor2.id,
+        status: 'WAITING',
+      },
+    }),
+    prisma.queueToken.create({
+      data: {
+        tokenNumber: 1,
+        patientId: patients[7].id,
+        doctorId: doctor3.id,
+        appointmentId: appointments[5].id,
+        status: 'WAITING',
+      },
+    }),
+  ]);
 
-  console.log('Database seeding completed successfully.');
+  console.log('✅ Queue tokens seeded');
+  console.log('');
+  console.log('🎉 Database seeded successfully!');
+  console.log('');
+  console.log('Pre-seeded accounts (password: password123):');
+  console.log('  ADMIN       → admin@haqms.com');
+  console.log('  RECEPTIONIST → reception1@haqms.com');
+  console.log('  DOCTOR      → doctor1@haqms.com  (Dr. Gregory House)');
+  console.log('  DOCTOR      → doctor2@haqms.com  (Dr. Meredith Grey)');
+  console.log('  DOCTOR      → doctor3@haqms.com  (Dr. John Carter)');
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+    console.error('❌ Seed failed:', e);
     process.exit(1);
   })
   .finally(async () => {
