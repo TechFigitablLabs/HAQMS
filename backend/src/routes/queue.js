@@ -5,9 +5,10 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+
 // GET /api/queue
-// List all active queue tokens
-router.get('/', authenticate, async (req, res) => {
+// Public read for Live Queue Board (no auth — monitor is intentionally public)
+router.get('/', async (req, res) => {
   try {
     const { doctorId, status } = req.query;
 
