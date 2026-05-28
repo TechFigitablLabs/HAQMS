@@ -1,0 +1,112 @@
+// This is the Prisma schema for HAQMS.
+// FIX: Added missing indexes and unique constraints.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("RECEPTIONIST")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  doctor    Doctor?
+}
+
+model Doctor {
+  id              String         @id @default(cuid())
+  name            String
+  specialization  String
+  department      String
+  experience      Int
+  consultationFee Float
+  availableFrom   String
+  availableTo     String
+  userId          String?        @unique
+  user            User?          @relation(fields: [userId], references: [id])
+  appointments    Appointment[]
+  queueTokens     QueueToken[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // FIX: Index on specialization and department — speeds up filtered lookups
+  @@index([specialization])
+  @@index([department])
+}
+
+model Patient {
+  id             String        @id @default(cuid())
+  name           String
+  email          String?
+  phoneNumber    String
+  age            Int
+  gender         String
+  medicalHistory String?
+  appointments   Appointment[]
+  queueTokens    QueueToken[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // FIX: Indexes on searchable fields — name, phoneNumber, email for fast ILIKE lookups
+  @@index([name])
+  @@index([phoneNumber])
+  @@index([email])
+}
+
+model Appointment {
+  id              String            @id @default(cuid())
+  patientId       String
+  doctorId        String
+  appointmentDate DateTime
+  reason          String?
+  status          String            @default("PENDING")
+  patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor          Doctor            @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  queueToken      QueueToken?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  // FIX: Index on doctorId + appointmentDate — the duplicate-booking check and date
+  // range queries use this composite index for fast lookups.
+  // FIX: Index on status — frequently filtered in WHERE clauses.
+  @@index([doctorId, appointmentDate])
+  @@index([patientId])
+  @@index([status])
+}
+
+model QueueToken {
+  id            String      @id @default(cuid())
+  tokenNumber   Int
+  patientId     String
+  doctorId      String
+  appointmentId String?     @unique
+  status        String      @default("WAITING")
+  patient       Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor        Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // FIX: Unique constraint on (doctorId, tokenNumber, date-partition).
+  // Prevents duplicate token numbers for the same doctor on the same day
+  // at the DB level — a last line of defence even if the application layer fails.
+  // Note: PostgreSQL doesn't support function-based unique indexes in Prisma directly,
+  // so we use a composite unique on (doctorId, tokenNumber) and rely on the transaction
+  // in the check-in route to scope per-day. For a full solution a DB migration with a
+  // partial index `WHERE createdAt >= today` can be added manually.
+  @@unique([doctorId, tokenNumber])
+
+  // FIX: Index on status — queue board filters by WAITING/CALLING frequently.
+  @@index([doctorId, status])
+  @@index([patientId])
+}
+
+
