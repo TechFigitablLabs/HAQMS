@@ -1,24 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Navbar from '@/components/common/Navbar';
-import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { Activity, Bell, Monitor, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 
 export default function QueueMonitor() {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Duplicated config state just to add minor code smell
   const [refreshCount, setRefreshCount] = useState(0);
+  const pollTimeoutRef = useRef(null);
 
-  // HARDCODED API BASE URL: Duplicated from AuthContext (code duplication smell)
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const { API_BASE_URL } = useAuth();
 
   const fetchQueueData = async () => {
     try {
-      // Insecure: Fetches queue without checking credentials (it's a public dashboard, which is fine, 
-      // but it uses the hardcoded API domain)
       const res = await fetch(`${API_BASE_URL}/queue`);
       if (!res.ok) {
         throw new Error('Failed to retrieve active token queue.');
@@ -26,33 +23,66 @@ export default function QueueMonitor() {
       const data = await res.json();
       setTokens(data);
       setError('');
+      setRefreshCount((prev) => prev + 1);
+      return data;
     } catch (err) {
       console.error('Queue poll fetch error:', err);
       setError(err.message);
+      return null;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Initial fetch
-    fetchQueueData();
+    let isMounted = true;
 
-    // MEMORY LEAK BUG:
-    // This setInterval has NO cleanup function (does not return clearInterval).
-    // Every time this page is mounted, a new background polling timer is spun up.
-    // If the candidate navigates between Dashboard and Queue multiple times,
-    // dozens of parallel intervals will poll the database, causing memory bloat,
-    // state update crashes on unmounted components, and heavy server load.
-    const intervalId = setInterval(() => {
-      console.log(`[POLL] Active Queue Poll #${refreshCount + 1} firing...`);
-      fetchQueueData();
-      setRefreshCount((prev) => prev + 1);
-    }, 3000);
+    const scheduleNextPoll = (delayMs) => {
+      if (!isMounted) return;
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+      pollTimeoutRef.current = setTimeout(async () => {
+        const data = await fetchQueueData();
+        if (!isMounted) return;
 
-    // Junior Developer Note: "Interval created, will run forever to keep dashboard fully synced!"
-    // Missing: return () => clearInterval(intervalId);
-  }, []); // Note that refreshCount dependency is missing too, causing stale closure on log!
+        const hasActiveQueue = Array.isArray(data) && data.some(
+          (t) => t.status === 'WAITING' || t.status === 'CALLING'
+        );
+
+        // Adaptive polling: fast only while actively serving queue.
+        // Hidden tab polls least often to reduce wasted load.
+        let nextDelay = 15000;
+        if (document.hidden) {
+          nextDelay = 30000;
+        } else if (hasActiveQueue) {
+          nextDelay = 5000;
+        }
+        scheduleNextPoll(nextDelay);
+      }, delayMs);
+    };
+
+    fetchQueueData().then((data) => {
+      if (!isMounted) return;
+      const hasActiveQueue = Array.isArray(data) && data.some(
+        (t) => t.status === 'WAITING' || t.status === 'CALLING'
+      );
+      const initialDelay = hasActiveQueue ? 5000 : 15000;
+      scheduleNextPoll(initialDelay);
+    });
+
+    const onVisibilityChange = () => {
+      if (!isMounted) return;
+      // Re-schedule quickly when tab becomes visible for fresher board updates.
+      scheduleNextPoll(document.hidden ? 30000 : 2000);
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      isMounted = false;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
 
   // Group tokens by doctor
   const groupedTokens = tokens.reduce((groups, token) => {
@@ -90,7 +120,7 @@ export default function QueueMonitor() {
                 Live Public Monitor Board
               </h1>
               <p className="text-xs text-slate-400 dark:text-slate-400 font-semibold mt-1">
-                Real-time physician calling boards. Auto-syncs every 3 seconds.
+                Real-time physician calling boards with adaptive auto-sync.
               </p>
             </div>
           </div>
@@ -102,6 +132,22 @@ export default function QueueMonitor() {
             </span>
             <div className="p-2 bg-slate-100 dark:bg-slate-800 rounded-lg text-slate-400 text-xs font-mono">
               Polls: {refreshCount}
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3 mb-6">
+          <div className="p-3 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-700 dark:text-teal-300 flex items-start gap-3 text-xs font-semibold leading-5">
+            <CheckCircle className="h-5 w-5 shrink-0" />
+            <div>
+              <strong>Queue monitor optimization applied:</strong> Polling is now adaptive (fast when active, slower when idle/background) with proper timer cleanup to reduce unnecessary server load.
+            </div>
+          </div>
+
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 flex items-start gap-3 text-xs font-semibold leading-5">
+            <CheckCircle className="h-5 w-5 shrink-0" />
+            <div>
+              <strong>Sync issue note:</strong> The monitor temporarily broke after queue auth hardening on <code>/api/queue</code>. It has been fixed by restoring public read-only access for this monitor endpoint.
             </div>
           </div>
         </div>

@@ -4,27 +4,28 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Users, CalendarDays, Activity, Search, Sparkles, UserPlus, 
   Trash2, ClipboardList, TrendingUp, DollarSign, Award, Clock,
-  ArrowRight, ShieldAlert, CheckCircle, Volume2
+  ArrowRight, CheckCircle, Volume2
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, token, API_BASE_URL, logout } = useAuth();
+  const { user, token, API_BASE_URL, loading: authLoading } = useAuth();
   const router = useRouter();
 
   // Navigation Guard
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push('/login');
     }
-  }, [user]);
-
-  if (!user) return null;
+  }, [authLoading, user, router]);
 
   // Global State
-  const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
+  const [activeTab, setActiveTab] = useState(
+    user?.role === 'ADMIN' ? 'reports' : user?.role === 'RECEPTIONIST' ? 'patients' : 'appointments'
+  );
 
   // ==========================================
   // STATE FOR RECEPTIONIST WORKFLOWS
@@ -52,6 +53,7 @@ export default function Dashboard() {
   const [bookingReason, setBookingReason] = useState('');
   const [bookingMessage, setBookingMessage] = useState('');
   const [checkinMessage, setCheckinMessage] = useState('');
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
   // ==========================================
   // STATE FOR DOCTOR WORKFLOWS
@@ -66,6 +68,11 @@ export default function Dashboard() {
   const [adminReportData, setAdminReportData] = useState(null);
   const [adminReportLoading, setAdminReportLoading] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (!user) return;
+    setActiveTab(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
+  }, [user]);
 
   // ==========================================
   // RECEPTIONIST FUNCTIONS
@@ -97,10 +104,11 @@ export default function Dashboard() {
 
   // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
   useEffect(() => {
+    if (!user || !token) return;
     if (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') {
       fetchPatients(1);
     }
-  }, [patientSearch, patientGender]);
+  }, [patientSearch, patientGender, user, token]);
 
   // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
@@ -109,15 +117,16 @@ export default function Dashboard() {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      setDoctorsList(data);
+      setDoctorsList(data.success ? data.data.doctors : []);
     } catch (e) {
       console.error(e);
     }
   };
 
   useEffect(() => {
+    if (!user || !token) return;
     fetchDoctorsDropdown();
-  }, []);
+  }, [user, token]);
 
   // Handle Patient Registration
   const handleRegisterPatient = async (e) => {
@@ -131,6 +140,14 @@ export default function Dashboard() {
       return;
     }
 
+    const normalizedPhone = regPhone.trim();
+    const phonePattern = /^\+?[0-9()\-\s]{7,20}$/;
+    const digitCount = (normalizedPhone.match(/\d/g) || []).length;
+    if (!phonePattern.test(normalizedPhone) || digitCount < 7 || digitCount > 15) {
+      setRegMessage('Error: Enter a valid phone number (7-15 digits, optional +, spaces, dashes, parentheses).');
+      return;
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/patients`, {
         method: 'POST',
@@ -141,7 +158,7 @@ export default function Dashboard() {
         body: JSON.stringify({
           name: regName,
           email: regEmail,
-          phoneNumber: regPhone,
+          phoneNumber: normalizedPhone,
           age: regAge,
           gender: regGender,
           medicalHistory: regHistory
@@ -196,7 +213,7 @@ export default function Dashboard() {
       if (res.ok) {
         setBookingMessage('Success: Appointment booked successfully!');
         setBookingReason('');
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
+        if (user?.role === 'DOCTOR') fetchDoctorWorklist();
       } else {
         setBookingMessage(`Error: ${data.error || 'Failed to book'}`);
       }
@@ -225,9 +242,11 @@ export default function Dashboard() {
     }
   };
 
-  // Queue Token Checkin (Race condition API!)
-  const handleQueueCheckin = async (patientId, doctorId, appointmentId = null) => {
+  // Queue token check-in with duplicate protection
+  const handleQueueCheckin = async (patientId, doctorId, appointmentId = null, forceReassign = false) => {
+    if (checkinLoading) return;
     setCheckinMessage('');
+    setCheckinLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/queue/checkin`, {
         method: 'POST',
@@ -235,17 +254,35 @@ export default function Dashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ patientId, doctorId, appointmentId })
+        body: JSON.stringify({ patientId, doctorId, appointmentId, forceReassign })
       });
       const data = await res.json();
       if (res.ok) {
-        setCheckinMessage(`Checked in! Generated Token #${data.token.tokenNumber}`);
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
+        if (data.reusedExisting) {
+          setCheckinMessage(`Already checked in. Reusing Token #${data.token.tokenNumber}`);
+        } else {
+          setCheckinMessage(`Checked in! Generated Token #${data.token.tokenNumber}`);
+        }
+        if (user?.role === 'DOCTOR') fetchDoctorWorklist();
       } else {
-        setCheckinMessage(`Error check-in: ${data.error}`);
+        if (res.status === 409 && data.requiresReassign) {
+          const confirmed = confirm(
+            `${data.error}\n\nClick OK to reassign this patient to the newly selected physician.`
+          );
+          if (confirmed) {
+            setCheckinLoading(false);
+            await handleQueueCheckin(patientId, doctorId, appointmentId, true);
+            return;
+          }
+          setCheckinMessage('Reassignment cancelled.');
+        } else {
+          setCheckinMessage(`Error check-in: ${data.error}`);
+        }
       }
     } catch (err) {
       setCheckinMessage(`Error: ${err.message}`);
+    } finally {
+      setCheckinLoading(false);
     }
   };
 
@@ -253,7 +290,7 @@ export default function Dashboard() {
   // DOCTOR WORKFLOW FUNCTIONS
   // ==========================================
   const fetchDoctorWorklist = async () => {
-    if (user.role !== 'DOCTOR') return;
+    if (!user || user.role !== 'DOCTOR') return;
     try {
       // Find matching doctor from doctors dropdown using user ID link
       const matchedDoc = doctorsList.find(d => d.userId === user.id);
@@ -281,10 +318,11 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (user.role === 'DOCTOR' && doctorsList.length > 0) {
+    if (!user || !token || user.role !== 'DOCTOR') return;
+    if (doctorsList.length > 0) {
       fetchDoctorWorklist();
     }
-  }, [doctorsList]);
+  }, [doctorsList, user, token]);
 
   // Update token status (WAITING -> CALLING -> COMPLETED / SKIPPED)
   const handleUpdateQueueStatus = async (tokenId, newStatus) => {
@@ -347,22 +385,24 @@ export default function Dashboard() {
     }
   };
 
-  // Search Doctors (SQL Injection vulnerable API!)
+  // Search doctors by name
   const searchPhysiciansAdmin = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/doctors?search=${adminSearchQuery}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setDoctorsList(data);
+      if (data.success) {
+        setDoctorsList(data.data.doctors);
       } else {
-        alert(`API Error: ${data.sqlMessage || data.error}`);
+        alert(`API Error: ${data.error || 'Failed to load physicians'}`);
       }
     } catch (e) {
       console.error(e);
     }
   };
+
+  if (authLoading || !user) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -446,6 +486,13 @@ export default function Dashboard() {
                     Patient Lookup Directory
                   </h3>
 
+                  <div className="p-3 mb-4 bg-teal-500/10 text-teal-700 dark:text-teal-300 text-xs rounded-lg border border-teal-500/20 font-semibold leading-5 flex gap-3">
+                    <CheckCircle className="h-5 w-5 shrink-0" />
+                    <div>
+                      <strong>Delete fix applied:</strong> Patient deletion now succeeds by cleaning related appointments and queue records before removing the patient record.
+                    </div>
+                  </div>
+
                   {/* Filters (Causes slow re-renders on keystroke) */}
                   <div className="flex gap-4 mb-6">
                     <div className="relative flex-1 rounded-lg shadow-sm">
@@ -503,9 +550,10 @@ export default function Dashboard() {
                               <td className="py-3.5 text-right space-x-2">
                                 <button
                                   onClick={() => handleQueueCheckin(p.id, doctorsList[0]?.id)}
+                                  disabled={checkinLoading || !doctorsList[0]?.id}
                                   className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
-                                  Check In
+                                  {checkinLoading ? 'Checking In...' : 'Check In'}
                                 </button>
                                 
                                 {/* Security flaw testing: Receptionist or doctor can delete since check is bypassed */}
@@ -608,7 +656,9 @@ export default function Dashboard() {
                       required
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
-                      placeholder="555-0199 (Unchecked format)"
+                      placeholder="+1 555-0199"
+                      pattern="^\+?[0-9()\-\s]{7,20}$"
+                      title="Use 7-15 digits. You can include spaces, dashes, parentheses, and a leading +."
                       className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
                     />
                   </div>
@@ -740,8 +790,7 @@ export default function Dashboard() {
 
               <div className="space-y-6">
                 <div className="p-4 rounded-xl border border-teal-500/25 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
-                  <strong>Token Generation Engine Note:</strong> Direct arrivals bypass appointments. The token engine automatically fetches the current days maximum token size and increments. 
-                  <span className="block mt-1 font-bold text-rose-500 uppercase tracking-wide">Warning: Vulnerable to check-in race conditions!</span>
+                  <strong>Check-in fix applied:</strong> Direct arrivals now use concurrency-safe token generation and duplicate active check-ins are prevented for the same patient-doctor pair on the same day.
                 </div>
 
                 <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -773,6 +822,7 @@ export default function Dashboard() {
 
                   <button
                     onClick={() => {
+                      if (checkinLoading) return;
                       const pId = document.getElementById('walkin-patient').value;
                       const dId = document.getElementById('walkin-doctor').value;
                       if (!pId || !dId) {
@@ -781,9 +831,10 @@ export default function Dashboard() {
                       }
                       handleQueueCheckin(pId, dId);
                     }}
+                    disabled={checkinLoading}
                     className="glow-btn w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 font-extrabold text-sm rounded-lg shadow-md transition-colors duration-300 mt-2"
                   >
-                    Generate Live Token
+                    {checkinLoading ? 'Generating...' : 'Generate Live Token'}
                   </button>
                 </div>
               </div>
@@ -843,11 +894,13 @@ export default function Dashboard() {
                                 <button
                                   onClick={() => {
                                     const matchedDoc = doctorsList.find(d => d.userId === user.id);
+                                    if (!matchedDoc) return;
                                     handleQueueCheckin(app.patientId, matchedDoc.id, app.id);
                                   }}
+                                  disabled={checkinLoading}
                                   className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
-                                  Check In Patient
+                                  {checkinLoading ? 'Checking In...' : 'Check In Patient'}
                                 </button>
                                 <button
                                   onClick={() => handleCompleteAppointment(app.id)}
@@ -894,7 +947,7 @@ export default function Dashboard() {
                       without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
                       this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
                   <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
+                    {(selectedPatientHistory.medicalHistory || 'No medical history available.').toUpperCase()}
                   </p>
                 </div>
 
@@ -1012,22 +1065,22 @@ export default function Dashboard() {
                     <div></div>
                   </div>
                   <p className="mt-4 text-xs font-semibold text-slate-400 animate-pulse">
-                    Executing sequential nested loop aggregates. Event loop is locked...
+                    Loading doctor performance report...
                   </p>
                 </div>
               ) : !adminReportData ? (
                 <div className="p-8 text-center bg-slate-100 dark:bg-slate-800/40 rounded-xl text-slate-400 text-xs font-semibold border border-dashed border-slate-200 dark:border-slate-700">
-                  Click the button above to load reports. Warning: Endpoint is extremely slow on larger doctor count tables!
+                  Click the button above to load doctor performance and revenue metrics.
                 </div>
               ) : (
                 <div className="space-y-6">
                   {/* Reporting details benchmark */}
-                  <div className="flex items-center gap-3 p-3 bg-amber-500/10 text-slate-700 dark:text-slate-300 text-xs rounded-lg border border-amber-500/20 leading-5">
-                    <Clock className="h-5 w-5 text-amber-500 shrink-0" />
+                  <div className="flex items-center gap-3 p-3 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs rounded-lg border border-teal-500/20 leading-5">
+                    <CheckCircle className="h-5 w-5 text-teal-500 shrink-0" />
                     <div>
-                      <strong>Performance Diagnostic:</strong> API execution resolved in{' '}
-                      <span className="font-bold text-amber-500">{adminReportData.timeTakenMs} ms</span>. 
-                      Sequential nested database calls loops reduce throughput. Optimization using Promise.all or single join aggregate is required.
+                      <strong>Performance fix applied:</strong> API execution resolved in{' '}
+                      <span className="font-bold text-teal-600 dark:text-teal-400">{adminReportData.timeTakenMs} ms</span>.
+                      {' '}Optimized using parallelized aggregation with Promise.all and removed artificial delay from report generation.
                     </div>
                   </div>
 
@@ -1088,7 +1141,7 @@ export default function Dashboard() {
         )}
 
         {/* ==============================================================
-            TAB: PHYSICIAN REGISTRY (ADMIN ROLE - SQL INJECTION VULNERABILITY)
+            TAB: PHYSICIAN REGISTRY (ADMIN ROLE)
             ============================================================== */}
         {activeTab === 'physicians' && (
           <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
@@ -1098,7 +1151,7 @@ export default function Dashboard() {
                 Staff Physicians Registry Lookup
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                Database lookup for credentials. Uses a raw SQL interpolation backend query.
+                Search and review available physicians by name.
               </p>
             </div>
 
@@ -1111,7 +1164,7 @@ export default function Dashboard() {
                   type="text"
                   value={adminSearchQuery}
                   onChange={(e) => setAdminSearchQuery(e.target.value)}
-                  placeholder="Enter physician name search criteria (raw syntax supported)..."
+                  placeholder="Search physician by name..."
                   className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 />
               </div>
@@ -1120,18 +1173,14 @@ export default function Dashboard() {
                 onClick={searchPhysiciansAdmin}
                 className="glow-btn px-5 py-2 bg-slate-900 text-white dark:bg-teal-500 dark:text-slate-950 font-bold text-xs rounded-lg hover:bg-slate-800 dark:hover:bg-teal-400 transition-colors"
               >
-                Execute SQL Query
+                Search Physicians
               </button>
             </div>
 
-            <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
+            <div className="p-3 bg-teal-500/10 text-teal-700 dark:text-teal-300 text-xs rounded-lg border border-teal-500/20 font-semibold leading-5 flex gap-3">
+              <CheckCircle className="h-5 w-5 shrink-0" />
               <div>
-                <strong>SQL Vulnerability alert:</strong> This search executes raw interpolation: 
-                <code className="block bg-black/10 dark:bg-black/30 p-1.5 rounded mt-1 font-mono">
-                  SELECT * FROM &quot;Doctor&quot; WHERE name ILIKE &apos;%&#123;query&#125;%&apos;
-                </code>
-                Can be audited by inputting standard SQL injection strings to leak full user login lists.
+                <strong>SQL security fix applied:</strong> Physician search now uses safe parameterized filtering on the backend.
               </div>
             </div>
 

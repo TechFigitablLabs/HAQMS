@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: haqms-backend
+    env: docker
+    plan: starter
+    repo: https://github.com/<YOUR_ORG>/<YOUR_REPO>
+    branch: main
+    dockerfilePath: backend/Dockerfile
+    buildCommand: npm ci
+    startCommand: ./run.sh
+    postdeploy: npx prisma migrate deploy && node prisma/seed.js
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: PORT
+        value: "5000"
+
+databases:
+  - name: haqms-db
+    plan: starter
+    disk: 10

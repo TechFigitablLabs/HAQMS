@@ -95,11 +95,21 @@ router.post('/', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Name, phoneNumber, age, and gender are required.' });
     }
 
+    const normalizedPhone = String(phoneNumber).trim();
+    const phonePattern = /^\+?[0-9()\-\s]{7,20}$/;
+    const digitCount = (normalizedPhone.match(/\d/g) || []).length;
+
+    if (!phonePattern.test(normalizedPhone) || digitCount < 7 || digitCount > 15) {
+      return res.status(400).json({
+        error: 'Invalid phone number format. Use 7-15 digits (spaces, dashes, parentheses, and leading + allowed).',
+      });
+    }
+
     const patient = await prisma.patient.create({
       data: {
         name,
         email: email || null,
-        phoneNumber,
+        phoneNumber: normalizedPhone,
         age: parseInt(age),
         gender,
         medicalHistory: medicalHistory || null, // Can be null, will crash UI without optional chaining
@@ -124,7 +134,12 @@ router.delete('/:id', authenticate, authorizeAdminOnlyLegacy, async (req, res) =
       return res.status(404).json({ error: 'Patient not found' });
     }
 
-    await prisma.patient.delete({ where: { id } });
+    // Delete related rows first to satisfy FK constraints, then remove patient.
+    await prisma.$transaction([
+      prisma.queueToken.deleteMany({ where: { patientId: id } }),
+      prisma.appointment.deleteMany({ where: { patientId: id } }),
+      prisma.patient.delete({ where: { id } }),
+    ]);
 
     res.json({ message: `Successfully deleted patient ${patient.name}` });
   } catch (error) {
