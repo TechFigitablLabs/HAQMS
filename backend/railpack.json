@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "build": {
+      "commands": ["npx prisma generate"]
+    }
+  },
+  "deploy": {
+    "startCommand": "npx prisma migrate deploy && node src/index.js"
+  }
+}
