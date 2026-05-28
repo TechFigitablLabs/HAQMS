@@ -40,6 +40,20 @@ npx prisma db seed
 |----------|---------|
 | `NEXT_PUBLIC_API_URL` | `https://your-backend.up.railway.app/api` |
 
+**Important:** `NEXT_PUBLIC_*` variables are embedded at **build time**. Set `NEXT_PUBLIC_API_URL` on the frontend service, then trigger a **new deploy** (rebuild). If unset, the app calls `http://localhost:5000/api` and login fails.
+
+### Fix: login error `Unexpected token '<', "<!DOCTYPE "... is not valid JSON`
+
+The browser expected JSON from `/api/auth/login` but received an **HTML page** (usually a 404 from the frontend host).
+
+| Wrong | Right |
+|-------|--------|
+| `NEXT_PUBLIC_API_URL` not set | Set to backend public URL + `/api` |
+| `https://frontend.up.railway.app` | `https://backend.up.railway.app/api` |
+| Missing `/api` suffix | Must end with `/api` |
+
+Test backend directly: open `https://your-backend.up.railway.app/` — should return JSON `"HAQMS BACKEND..."`.
+
 ## Root-directory deploy (single service)
 
 If Railway builds the **repository root**, use the root `railpack.json` (installs `backend/`, runs migrations, starts API). This deploys **backend only**, not the Next.js app.
