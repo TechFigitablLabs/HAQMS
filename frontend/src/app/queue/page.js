@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Navbar from '@/components/common/Navbar';
 import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -15,10 +15,10 @@ export default function QueueMonitor() {
   // HARDCODED API BASE URL: Duplicated from AuthContext (code duplication smell)
   const API_BASE_URL = 'http://localhost:5000/api';
 
-  const fetchQueueData = async () => {
+  const pollCountRef = useRef(0);
+
+  const fetchQueueData = useCallback(async () => {
     try {
-      // Insecure: Fetches queue without checking credentials (it's a public dashboard, which is fine, 
-      // but it uses the hardcoded API domain)
       const res = await fetch(`${API_BASE_URL}/queue`);
       if (!res.ok) {
         throw new Error('Failed to retrieve active token queue.');
@@ -32,27 +32,19 @@ export default function QueueMonitor() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL]);
 
   useEffect(() => {
-    // Initial fetch
     fetchQueueData();
 
-    // MEMORY LEAK BUG:
-    // This setInterval has NO cleanup function (does not return clearInterval).
-    // Every time this page is mounted, a new background polling timer is spun up.
-    // If the candidate navigates between Dashboard and Queue multiple times,
-    // dozens of parallel intervals will poll the database, causing memory bloat,
-    // state update crashes on unmounted components, and heavy server load.
     const intervalId = setInterval(() => {
-      console.log(`[POLL] Active Queue Poll #${refreshCount + 1} firing...`);
+      pollCountRef.current += 1;
+      setRefreshCount(pollCountRef.current);
       fetchQueueData();
-      setRefreshCount((prev) => prev + 1);
     }, 3000);
 
-    // Junior Developer Note: "Interval created, will run forever to keep dashboard fully synced!"
-    // Missing: return () => clearInterval(intervalId);
-  }, []); // Note that refreshCount dependency is missing too, causing stale closure on log!
+    return () => clearInterval(intervalId);
+  }, [fetchQueueData]);
 
   // Group tokens by doctor
   const groupedTokens = tokens.reduce((groups, token) => {

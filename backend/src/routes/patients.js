@@ -1,58 +1,64 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
-const { authenticate, authorizeAdminOnlyLegacy } = require('../middleware/auth');
+const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
+function buildPatientWhere(search, gender) {
+  const conditions = [];
+
+  if (search) {
+    conditions.push({
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { phoneNumber: { contains: search } },
+        { email: { contains: search, mode: 'insensitive' } },
+      ],
+    });
+  }
+
+  if (gender && gender !== 'All') {
+    conditions.push({
+      gender: { equals: gender, mode: 'insensitive' },
+    });
+  }
+
+  if (conditions.length === 0) {
+    return {};
+  }
+
+  return { AND: conditions };
+}
+
 // GET /api/patients
-// Get all patients with search, filtering, and INEFICIENT IN-MEMORY PAGINATION
 router.get('/', authenticate, async (req, res) => {
   try {
     const { search, gender } = req.query;
-    
-    // Inefficient: Retrieve all matching rows without take/skip limits from the database.
-    // Scales poorly as patient directory grows.
-    const allPatients = await prisma.patient.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-
-    let filteredPatients = allPatients;
-
-    // In-memory filter for search (checks name/phone/email)
-    if (search) {
-      const query = search.toLowerCase();
-      filteredPatients = filteredPatients.filter(
-        (p) =>
-          p.name.toLowerCase().includes(query) ||
-          p.phoneNumber.includes(query) ||
-          (p.email && p.email.toLowerCase().includes(query))
-      );
-    }
-
-    // In-memory filter for gender
-    if (gender && gender !== 'All') {
-      filteredPatients = filteredPatients.filter(
-        (p) => p.gender.toLowerCase() === gender.toLowerCase()
-      );
-    }
-
-    // In-memory pagination setup
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 5;
     const offset = (page - 1) * limit;
-    
-    const paginatedResult = filteredPatients.slice(offset, offset + limit);
-    const totalPages = Math.ceil(filteredPatients.length / limit);
+    const where = buildPatientWhere(search, gender);
 
-    // Inconsistent Response style
+    const [patients, totalPatients] = await prisma.$transaction([
+      prisma.patient.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.patient.count({ where }),
+    ]);
+
+    const totalPages = Math.ceil(totalPatients / limit);
+
     res.json({
       success: true,
-      patients: paginatedResult,
+      patients,
       pagination: {
         page,
         limit,
-        totalPatients: filteredPatients.length,
+        totalPatients,
         totalPages,
       },
     });
@@ -62,14 +68,14 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // GET /api/patients/:id
-// Get patient details by ID. Notice N+1 issue could be placed here or in appointments,
-// but let's make it fetch the patient with their appointments and tokens.
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const patient = await prisma.patient.findUnique({
       where: { id: req.params.id },
       include: {
-        appointments: true, // Fetching relation direct
+        appointments: {
+          orderBy: { appointmentDate: 'desc' },
+        },
       },
     });
 
@@ -88,9 +94,6 @@ router.post('/', authenticate, async (req, res) => {
   try {
     const { name, email, phoneNumber, age, gender, medicalHistory } = req.body;
 
-    // INCONSISTENT VALIDATION:
-    // Email is nullable in schema, but here we only check missing fields.
-    // No regex to check telephone number formats, allowing random strings like "abc" to be stored!
     if (!name || !phoneNumber || !age || !gender) {
       return res.status(400).json({ error: 'Name, phoneNumber, age, and gender are required.' });
     }
@@ -100,9 +103,9 @@ router.post('/', authenticate, async (req, res) => {
         name,
         email: email || null,
         phoneNumber,
-        age: parseInt(age),
+        age: parseInt(age, 10),
         gender,
-        medicalHistory: medicalHistory || null, // Can be null, will crash UI without optional chaining
+        medicalHistory: medicalHistory || null,
       },
     });
 
@@ -113,9 +116,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // DELETE /api/patients/:id
-// SECURITY BUG: The route relies on authorizeAdminOnlyLegacy, which has the bypassed admin validation check!
-// This allows any receptionist or doctor to delete a patient.
-router.delete('/:id', authenticate, authorizeAdminOnlyLegacy, async (req, res) => {
+router.delete('/:id', authenticate, authorize(['ADMIN']), async (req, res) => {
   try {
     const { id } = req.params;
 

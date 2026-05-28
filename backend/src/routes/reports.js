@@ -6,68 +6,70 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/reports/doctor-stats
-// Highly inefficient nested loop aggregate reporting for admin/receptionists dashboard
-// PERFORMANCE BUG: Performs multiple nested DB queries inside a loop for every doctor.
-// Runs sequentially, blocking/scaling terrible with doctors count.
 router.get('/doctor-stats', authenticate, async (req, res) => {
   try {
     const start = Date.now();
 
-    // 1. Fetch all doctors
-    const doctors = await prisma.doctor.findMany();
-    const reportData = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // 2. Loop through every doctor and query databases sequentially!
-    for (const doc of doctors) {
-      console.log(`[SLOW REPORT] Querying stats sequentially for doctor: ${doc.name}`);
+    const [doctors, appointmentStats, queueStats] = await Promise.all([
+      prisma.doctor.findMany(),
+      prisma.appointment.groupBy({
+        by: ['doctorId', 'status'],
+        _count: { _all: true },
+      }),
+      prisma.queueToken.groupBy({
+        by: ['doctorId'],
+        where: { createdAt: { gte: today } },
+        _count: { _all: true },
+      }),
+    ]);
 
-      // Count total appointments
-      const totalAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id },
-      });
+    const statsByDoctor = {};
+    for (const row of appointmentStats) {
+      if (!statsByDoctor[row.doctorId]) {
+        statsByDoctor[row.doctorId] = {
+          totalAppointments: 0,
+          completedAppointments: 0,
+          cancelledAppointments: 0,
+        };
+      }
+      const count = row._count._all;
+      statsByDoctor[row.doctorId].totalAppointments += count;
+      if (row.status === 'COMPLETED') {
+        statsByDoctor[row.doctorId].completedAppointments = count;
+      }
+      if (row.status === 'CANCELLED') {
+        statsByDoctor[row.doctorId].cancelledAppointments = count;
+      }
+    }
 
-      // Count completed appointments
-      const completedAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id, status: 'COMPLETED' },
-      });
+    const queueByDoctor = {};
+    for (const row of queueStats) {
+      queueByDoctor[row.doctorId] = row._count._all;
+    }
 
-      // Count cancelled appointments
-      const cancelledAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id, status: 'CANCELLED' },
-      });
+    const reportData = doctors.map((doc) => {
+      const stats = statsByDoctor[doc.id] || {
+        totalAppointments: 0,
+        completedAppointments: 0,
+        cancelledAppointments: 0,
+      };
+      const revenue = stats.completedAppointments * doc.consultationFee;
 
-      // Fetch queue tokens count today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const queueTokensCount = await prisma.queueToken.count({
-        where: {
-          doctorId: doc.id,
-          createdAt: { gte: today },
-        },
-      });
-
-      // Calculate total potential revenue
-      const appointmentsList = await prisma.appointment.findMany({
-        where: { doctorId: doc.id, status: 'COMPLETED' },
-      });
-      const revenue = appointmentsList.length * doc.consultationFee;
-
-      // Add artifical wait to simulate load under scaled database
-      // "Ensures database connection doesn't drop" - junior dev comment
-      await new Promise(r => setTimeout(r, 80));
-
-      reportData.push({
+      return {
         id: doc.id,
         name: doc.name,
         specialization: doc.specialization,
         department: doc.department,
-        totalAppointments,
-        completedAppointments,
-        cancelledAppointments,
-        todayQueueSize: queueTokensCount,
+        totalAppointments: stats.totalAppointments,
+        completedAppointments: stats.completedAppointments,
+        cancelledAppointments: stats.cancelledAppointments,
+        todayQueueSize: queueByDoctor[doc.id] || 0,
         revenue,
-      });
-    }
+      };
+    });
 
     const durationMs = Date.now() - start;
 
