@@ -51,15 +51,14 @@ router.get('/doctor-stats', authenticate, async (req, res) => {
       _count: {_all: true},
     }),
 
-    prisma.appointment.groupBy({
+    prisma.queueToken.groupBy({
       by: ['doctorId'],
-      where: { doctorId: { id: doctorsIds} , createdAt: { gte: today}},
-      _count: {_all: true},
+      where: { doctorId: { in: doctorsIds }, createdAt: { gte: today } },
+      _count: { _all: true },
     }),
   ]);
 
-      // 3) Build O(1) lookup maps
-  const toCountMap  = ()=> new Map(rows.map((r)=> [r.doctorId, r._count._all]));
+    const toCountMap = (rows) => new Map(rows.map((r) => [r.doctorId, r._count._all]));
 
   const totalMap = toCountMap(totalByDoctor);
   const completedMap = toCountMap(completedByDoctor);
