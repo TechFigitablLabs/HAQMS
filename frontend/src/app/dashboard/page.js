@@ -1,91 +1,96 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/context/AuthContext';
-import Navbar from '@/components/common/Navbar';
-import { useRouter } from 'next/navigation';
-import { 
-  Users, CalendarDays, Activity, Search, Sparkles, UserPlus, 
-  Trash2, ClipboardList, TrendingUp, DollarSign, Award, Clock,
-  ArrowRight, ShieldAlert, CheckCircle, Volume2
-} from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
+import Navbar from "@/components/common/Navbar";
+import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Users,
+  CalendarDays,
+  Activity,
+  Search,
+  UserPlus,
+  Trash2,
+  ClipboardList,
+  TrendingUp,
+  Award,
+  Clock,
+  ShieldAlert,
+  Inbox,
+  FileSearch,
+  CheckCircle2,
+  Stethoscope,
+} from "lucide-react";
+import Link from "next/link";
 
 export default function Dashboard() {
-  const { user, token, API_BASE_URL, logout } = useAuth();
+  const { user, token, API_BASE_URL } = useAuth();
   const router = useRouter();
 
-  // Navigation Guard
   useEffect(() => {
-    if (!user) {
-      router.push('/login');
-    }
-  }, [user]);
+    if (!user) router.push("/login");
+  }, [user, router]);
 
-  if (!user) return null;
+  const [activeTab, setActiveTab] = useState(
+    user?.role === "ADMIN"
+      ? "reports"
+      : user?.role === "RECEPTIONIST"
+        ? "patients"
+        : "appointments",
+  );
 
-  // Global State
-  const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
-
-  // ==========================================
-  // STATE FOR RECEPTIONIST WORKFLOWS
-  // ==========================================
+  // Receptionist State
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
-  const [patientSearch, setPatientSearch] = useState('');
-  const [patientGender, setPatientGender] = useState('All');
-  const [patientsPagination, setPatientsPagination] = useState({ page: 1, totalPages: 1 });
-  
-  // Registration Form
-  const [regName, setRegName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPhone, setRegPhone] = useState('');
-  const [regAge, setRegAge] = useState('');
-  const [regGender, setRegGender] = useState('Male');
-  const [regHistory, setRegHistory] = useState('');
-  const [regMessage, setRegMessage] = useState('');
+  const [patientSearch, setPatientSearch] = useState("");
+  const [patientGender, setPatientGender] = useState("All");
+  const [patientsPagination, setPatientsPagination] = useState({
+    page: 1,
+    totalPages: 1,
+  });
 
-  // Queue and Appointment Booking
+  // Reg Form State
+  const [regName, setRegName] = useState("");
+  const [regEmail, setRegEmail] = useState("");
+  const [regPhone, setRegPhone] = useState("");
+  const [regAge, setRegAge] = useState("");
+  const [regGender, setRegGender] = useState("Male");
+  const [regHistory, setRegHistory] = useState("");
+  const [regMessage, setRegMessage] = useState("");
+
+  // Booking State
   const [doctorsList, setDoctorsList] = useState([]);
-  const [bookingPatientId, setBookingPatientId] = useState('');
-  const [bookingDoctorId, setBookingDoctorId] = useState('');
-  const [bookingDate, setBookingDate] = useState('');
-  const [bookingReason, setBookingReason] = useState('');
-  const [bookingMessage, setBookingMessage] = useState('');
-  const [checkinMessage, setCheckinMessage] = useState('');
+  const [bookingPatientId, setBookingPatientId] = useState("");
+  const [bookingDoctorId, setBookingDoctorId] = useState("");
+  const [bookingDate, setBookingDate] = useState("");
+  const [bookingReason, setBookingReason] = useState("");
+  const [bookingMessage, setBookingMessage] = useState("");
+  const [checkinMessage, setCheckinMessage] = useState("");
 
-  // ==========================================
-  // STATE FOR DOCTOR WORKFLOWS
-  // ==========================================
+  // Doctor State
   const [doctorAppointments, setDoctorAppointments] = useState([]);
   const [doctorQueue, setDoctorQueue] = useState([]);
-  const [selectedPatientHistory, setSelectedPatientHistory] = useState(null);
 
-  // ==========================================
-  // STATE FOR ADMIN WORKFLOWS
-  // ==========================================
+  // Admin State
   const [adminReportData, setAdminReportData] = useState(null);
   const [adminReportLoading, setAdminReportLoading] = useState(false);
-  const [adminSearchQuery, setAdminSearchQuery] = useState('');
+  const [adminSearchQuery, setAdminSearchQuery] = useState("");
 
-  // ==========================================
-  // RECEPTIONIST FUNCTIONS
-  // ==========================================
-  
-  // Fetch Patients List
+  // --- Network Functions ---
   const fetchPatients = async (page = 1) => {
     setPatientsLoading(true);
     try {
-      // Inefficient memory pagination called from client
-      const res = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=5&search=${patientSearch}&gender=${patientGender}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/patients?page=${page}&limit=5&search=${patientSearch}&gender=${patientGender}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const data = await res.json();
       if (data.success) {
         setPatients(data.patients);
         setPatientsPagination({
           page: data.pagination.page,
           totalPages: data.pagination.totalPages,
-          totalPatients: data.pagination.totalPatients
         });
       }
     } catch (e) {
@@ -95,18 +100,17 @@ export default function Dashboard() {
     }
   };
 
-  // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
   useEffect(() => {
-    if (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') {
-      fetchPatients(1);
+    if (user?.role === "RECEPTIONIST" || user?.role === "ADMIN") {
+      const timer = setTimeout(() => fetchPatients(1), 300);
+      return () => clearTimeout(timer);
     }
-  }, [patientSearch, patientGender]);
+  }, [patientSearch, patientGender, user?.role]);
 
-  // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/doctors`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       setDoctorsList(data);
@@ -119,24 +123,19 @@ export default function Dashboard() {
     fetchDoctorsDropdown();
   }, []);
 
-  // Handle Patient Registration
   const handleRegisterPatient = async (e) => {
     e.preventDefault();
-    setRegMessage('');
-
-    // INCONSISTENT VALIDATION: Receptionist form doesn't validate telephone structure on client, 
-    // leading to database pollution (e.g. text telephone values)
+    setRegMessage("");
     if (!regName || !regPhone || !regAge) {
-      setRegMessage('Error: Name, Age and Phone number are required.');
+      setRegMessage("Error: Name, Age and Phone number are strictly required.");
       return;
     }
-
     try {
       const res = await fetch(`${API_BASE_URL}/patients`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           name: regName,
@@ -144,202 +143,167 @@ export default function Dashboard() {
           phoneNumber: regPhone,
           age: regAge,
           gender: regGender,
-          medicalHistory: regHistory
-        })
+          medicalHistory: regHistory,
+        }),
       });
-
       const data = await res.json();
       if (res.ok) {
-        setRegMessage('Success: Patient registered successfully!');
-        // Clear fields
-        setRegName('');
-        setRegEmail('');
-        setRegPhone('');
-        setRegAge('');
-        setRegHistory('');
-        // Refresh directory
+        setRegMessage("Success: Patient registered successfully!");
+        setRegName("");
+        setRegEmail("");
+        setRegPhone("");
+        setRegAge("");
+        setRegHistory("");
         fetchPatients(1);
       } else {
-        setRegMessage(`Error: ${data.error || 'Failed to register'}`);
+        setRegMessage(`Error: ${data.error || "Failed to register"}`);
       }
     } catch (err) {
       setRegMessage(`Error: ${err.message}`);
     }
   };
 
-  // Handle Appointment Booking
   const handleBookAppointment = async (e) => {
     e.preventDefault();
-    setBookingMessage('');
-
+    setBookingMessage("");
     if (!bookingPatientId || !bookingDoctorId || !bookingDate) {
-      setBookingMessage('Error: All booking fields are required.');
+      setBookingMessage(
+        "Error: Patient, Physician, and Date are strictly required.",
+      );
       return;
     }
-
     try {
       const res = await fetch(`${API_BASE_URL}/appointments`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           patientId: bookingPatientId,
           doctorId: bookingDoctorId,
           appointmentDate: bookingDate,
-          reason: bookingReason
-        })
+          reason: bookingReason,
+        }),
       });
-
-      const data = await res.json();
       if (res.ok) {
-        setBookingMessage('Success: Appointment booked successfully!');
-        setBookingReason('');
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
+        setBookingMessage("Success: Appointment secured.");
+        setBookingReason("");
       } else {
-        setBookingMessage(`Error: ${data.error || 'Failed to book'}`);
+        setBookingMessage("Error: Failed to finalize booking.");
       }
     } catch (err) {
       setBookingMessage(`Error: ${err.message}`);
     }
   };
 
-  // Delete Patient (Bypassed authorization admin check!)
   const handleDeletePatient = async (id) => {
-    if (!confirm('Are you sure you want to delete this patient record?')) return;
+    if (!confirm("Confirm hard deletion of this record?")) return;
     try {
       const res = await fetch(`${API_BASE_URL}/patients/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
-      if (res.ok) {
-        alert(data.message || 'Patient deleted.');
-        fetchPatients(patientsPagination.page);
-      } else {
-        alert(`Error: ${data.error || 'Unauthorized deletion!'}`);
-      }
+      if (res.ok) fetchPatients(patientsPagination.page);
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      console.error(err);
     }
   };
 
-  // Queue Token Checkin (Race condition API!)
-  const handleQueueCheckin = async (patientId, doctorId, appointmentId = null) => {
-    setCheckinMessage('');
+  const handleQueueCheckin = async (
+    patientId,
+    doctorId,
+    appointmentId = null,
+  ) => {
+    setCheckinMessage("");
     try {
       const res = await fetch(`${API_BASE_URL}/queue/checkin`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ patientId, doctorId, appointmentId })
+        body: JSON.stringify({ patientId, doctorId, appointmentId }),
       });
       const data = await res.json();
       if (res.ok) {
-        setCheckinMessage(`Checked in! Generated Token #${data.token.tokenNumber}`);
-        if (user.role === 'DOCTOR') fetchDoctorWorklist();
-      } else {
-        setCheckinMessage(`Error check-in: ${data.error}`);
+        setCheckinMessage(
+          `Check-in successful. Assigned Token #${data.token.tokenNumber}`,
+        );
+        if (user?.role === "DOCTOR") fetchDoctorWorklist();
       }
     } catch (err) {
-      setCheckinMessage(`Error: ${err.message}`);
+      console.error(err);
     }
   };
 
-  // ==========================================
-  // DOCTOR WORKFLOW FUNCTIONS
-  // ==========================================
   const fetchDoctorWorklist = async () => {
-    if (user.role !== 'DOCTOR') return;
+    if (user?.role !== "DOCTOR") return;
     try {
-      // Find matching doctor from doctors dropdown using user ID link
-      const matchedDoc = doctorsList.find(d => d.userId === user.id);
+      const matchedDoc = doctorsList.find((d) => d.userId === user?.id);
       if (!matchedDoc) return;
+      const appRes = await fetch(
+        `${API_BASE_URL}/appointments?doctorId=${matchedDoc.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      const queueRes = await fetch(
+        `${API_BASE_URL}/queue?doctorId=${matchedDoc.id}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
 
-      // 1. Fetch appointments for this doctor (N+1 database queries triggers inside server)
-      const appRes = await fetch(`${API_BASE_URL}/appointments?doctorId=${matchedDoc.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const appData = await appRes.json();
-      if (appData.success) {
-        setDoctorAppointments(appData.appointments);
-      }
-
-      // 2. Fetch queue list for this doctor today
-      const queueRes = await fetch(`${API_BASE_URL}/queue?doctorId=${matchedDoc.id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const queueData = await queueRes.json();
-      setDoctorQueue(queueData);
-
+      if (appRes.ok)
+        setDoctorAppointments((await appRes.json()).appointments || []);
+      if (queueRes.ok) setDoctorQueue((await queueRes.json()) || []);
     } catch (e) {
       console.error(e);
     }
   };
 
   useEffect(() => {
-    if (user.role === 'DOCTOR' && doctorsList.length > 0) {
+    if (user?.role === "DOCTOR" && doctorsList.length > 0)
       fetchDoctorWorklist();
-    }
-  }, [doctorsList]);
+  }, [doctorsList, user?.role]);
 
-  // Update token status (WAITING -> CALLING -> COMPLETED / SKIPPED)
   const handleUpdateQueueStatus = async (tokenId, newStatus) => {
     try {
       const res = await fetch(`${API_BASE_URL}/queue/${tokenId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
-      if (res.ok) {
-        fetchDoctorWorklist();
-      }
+      if (res.ok) fetchDoctorWorklist();
     } catch (e) {
       console.error(e);
     }
   };
 
-  // Complete consultation of an appointment
   const handleCompleteAppointment = async (appId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/appointments/${appId}`, {
-        method: 'PATCH',
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 'COMPLETED' })
+        body: JSON.stringify({ status: "COMPLETED" }),
       });
-      if (res.ok) {
-        fetchDoctorWorklist();
-      }
+      if (res.ok) fetchDoctorWorklist();
     } catch (e) {
       console.error(e);
     }
   };
 
-  // ==========================================
-  // ADMIN SYSTEM WORKFLOWS
-  // ==========================================
-  
-  // Slow report generator fetch
   const generateSystemReport = async () => {
     setAdminReportLoading(true);
     try {
-      // Calls slow nested aggregation endpoint
       const res = await fetch(`${API_BASE_URL}/reports/doctor-stats`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (data.success) {
-        setAdminReportData(data);
-      }
+      if (data.success) setAdminReportData(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -347,817 +311,1044 @@ export default function Dashboard() {
     }
   };
 
-  // Search Doctors (SQL Injection vulnerable API!)
   const searchPhysiciansAdmin = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/doctors?search=${adminSearchQuery}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/doctors?search=${adminSearchQuery}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setDoctorsList(data);
-      } else {
-        alert(`API Error: ${data.sqlMessage || data.error}`);
-      }
+      if (Array.isArray(data)) setDoctorsList(data);
     } catch (e) {
       console.error(e);
     }
   };
 
+  if (!user) return null;
+
+  // --- Animation Variants ---
+  const tabVariants = {
+    hidden: { opacity: 0, y: 15 },
+    enter: {
+      opacity: 1,
+      y: 0,
+      transition: { duration: 0.4, staggerChildren: 0.1 },
+    },
+    exit: { opacity: 0, y: -10, transition: { duration: 0.2 } },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 15 },
+    enter: { opacity: 1, y: 0 },
+  };
+
+  // --- Reusable Empty State Component ---
+  const EmptyState = ({ icon: Icon, title, message }) => (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="flex flex-col items-center justify-center p-8 sm:p-12 text-center bg-white/40 rounded-[2rem] border-2 border-dashed border-[#3D4532]/20"
+    >
+      <div className="h-16 w-16 bg-[#FDF8F0] rounded-full flex items-center justify-center mb-4 shadow-inner border border-[#3D4532]/5">
+        <Icon className="h-8 w-8 text-[#3D4532]/40" />
+      </div>
+      <h3 className="text-xl font-black text-[#3D4532] tracking-tight">
+        {title}
+      </h3>
+      <p className="mt-2 text-sm text-[#3D4532]/60 font-medium max-w-sm">
+        {message}
+      </p>
+    </motion.div>
+  );
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#FDF8F0] selection:bg-[#D3F23A] selection:text-[#3D4532]">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
-        
-        {/* Navigation Tabs based on Role */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto gap-4">
-          {user.role === 'ADMIN' && (
-            <>
-              <button
-                onClick={() => setActiveTab('reports')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'reports' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
-              >
-                System Audit Reports
-              </button>
-              <button
-                onClick={() => setActiveTab('physicians')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'physicians' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
-              >
-                Physician Registry
-              </button>
-            </>
-          )}
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-8">
+        {/* Workspace Header */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="mb-8"
+        >
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif text-[#3D4532] tracking-tight">
+            Welcome, <span className="text-[#FF5E29]">{user.name}</span>
+          </h1>
+          <p className="text-sm sm:text-base text-[#3D4532]/60 mt-2 font-medium">
+            Manage operational workflows from your secure workspace.
+          </p>
+        </motion.div>
 
-          {(user.role === 'RECEPTIONIST' || user.role === 'ADMIN') && (
-            <>
+        {/* Dynamic Navigation Tabs */}
+        <div className="flex border-b-2 border-[#3D4532]/10 mb-8 overflow-x-auto gap-2 sm:gap-4 hide-scrollbar pb-2 relative">
+          {[
+            { id: "reports", label: "System Audits", roles: ["ADMIN"] },
+            { id: "physicians", label: "Physician Registry", roles: ["ADMIN"] },
+            {
+              id: "patients",
+              label: "Patient Directory",
+              roles: ["RECEPTIONIST", "ADMIN"],
+            },
+            {
+              id: "book",
+              label: "Scheduling Portal",
+              roles: ["RECEPTIONIST", "ADMIN"],
+            },
+            { id: "appointments", label: "My Bookings", roles: ["DOCTOR"] },
+            { id: "queue", label: "Active Queue", roles: ["DOCTOR"] },
+          ]
+            .filter((t) => t.roles.includes(user.role))
+            .map((tab) => (
               <button
-                onClick={() => setActiveTab('patients')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'patients' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`relative py-2.5 px-4 sm:px-6 rounded-full font-bold text-xs sm:text-sm transition-all whitespace-nowrap z-10 ${
+                  activeTab === tab.id
+                    ? "text-[#3D4532]"
+                    : "text-[#3D4532]/60 hover:text-[#3D4532]"
+                }`}
               >
-                Patient Registry Directory
+                {activeTab === tab.id && (
+                  <motion.div
+                    layoutId="activeTab"
+                    className="absolute inset-0 bg-[#D3F23A] rounded-full -z-10 shadow-sm border border-[#D3F23A]"
+                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                  />
+                )}
+                {tab.label}
               </button>
-              <button
-                onClick={() => setActiveTab('book')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'book' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
-              >
-                Scheduling / Check-in Portal
-              </button>
-            </>
-          )}
-
-          {user.role === 'DOCTOR' && (
-            <>
-              <button
-                onClick={() => setActiveTab('appointments')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'appointments' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
-              >
-                My Scheduled Bookings
-              </button>
-              <button
-                onClick={() => setActiveTab('queue')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'queue' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
-              >
-                Active Calling Queue
-              </button>
-            </>
-          )}
+            ))}
         </div>
 
-        {/* Global Notifications Panel */}
-        {checkinMessage && (
-          <div className="p-4 mb-6 rounded-xl bg-teal-500/10 border border-teal-500/20 text-teal-600 dark:text-teal-400 flex items-center justify-between text-sm">
-            <span>{checkinMessage}</span>
-            <button onClick={() => setCheckinMessage('')} className="font-bold underline text-xs">Dismiss</button>
-          </div>
-        )}
+        {/* Global Notifications */}
+        <AnimatePresence>
+          {checkinMessage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, height: 0 }}
+              className="p-4 mb-6 rounded-xl bg-[#D3F23A] text-[#FF5E29] border border-[#3D4532]/10 font-bold flex flex-col sm:flex-row sm:items-center justify-between text-sm shadow-sm gap-2"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span>{checkinMessage}</span>
+              </div>
+              <button
+                onClick={() => setCheckinMessage("")}
+                className="underline text-xs text-[#3D4532] hover:text-[#FF5E29] self-end sm:self-auto"
+              >
+                Dismiss
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {/* ==============================================================
-            TAB: PATIENT REGISTRY (RECEPTIONIST & ADMIN)
-            ============================================================== */}
-        {activeTab === 'patients' && (
-          <div className="space-y-8">
-            <div className="grid gap-8 lg:grid-cols-3">
-              {/* Directory Section */}
-              <div className="lg:col-span-2 space-y-6">
-                <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
-                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                    <ClipboardList className="h-5 w-5 text-teal-600" />
+        <AnimatePresence mode="wait">
+          {/* TAB: PATIENTS */}
+          {activeTab === "patients" && (
+            <motion.div
+              key="patients"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="space-y-8"
+            >
+              <div className="grid gap-6 lg:gap-8 lg:grid-cols-3">
+                <motion.div
+                  variants={itemVariants}
+                  className="lg:col-span-2 space-y-6 bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl shadow-[#3D4532]/5 border border-[#3D4532]/10"
+                >
+                  <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                    <ClipboardList className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
                     Patient Lookup Directory
                   </h3>
 
-                  {/* Filters (Causes slow re-renders on keystroke) */}
-                  <div className="flex gap-4 mb-6">
-                    <div className="relative flex-1 rounded-lg shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                        <Search className="h-4 w-4" />
-                      </div>
+                  {/* Responsive Filters */}
+                  <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                    <div className="relative flex-1 group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#3D4532]/40 group-focus-within:text-[#FF5E29] transition-colors" />
                       <input
                         type="text"
                         value={patientSearch}
                         onChange={(e) => setPatientSearch(e.target.value)}
-                        placeholder="Search by name, phone or email..."
-                        className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
+                        placeholder="Search records by name or contact..."
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#D3F23A] focus:outline-none transition-all shadow-sm"
                       />
                     </div>
-
                     <select
                       value={patientGender}
                       onChange={(e) => setPatientGender(e.target.value)}
-                      className="px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
+                      className="w-full sm:w-auto px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#D3F23A] focus:outline-none transition-all shadow-sm"
                     >
                       <option value="All">All Genders</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
-                      <option value="Other">Other</option>
                     </select>
                   </div>
 
-                  {/* Table listing */}
                   {patientsLoading ? (
-                    <p className="text-center py-6 text-slate-400 animate-pulse text-sm">Synchronizing table data...</p>
+                    <div className="h-48 flex items-center justify-center bg-white/40 rounded-xl border border-[#3D4532]/5">
+                      <span className="flex items-center gap-2 text-sm font-bold text-[#3D4532]/40 uppercase tracking-widest animate-pulse">
+                        <Activity className="h-4 w-4" /> Fetching Records...
+                      </span>
+                    </div>
                   ) : patients.length === 0 ? (
-                    <p className="text-center py-6 text-slate-400 text-sm">No registered patients match this filter.</p>
+                    <EmptyState
+                      icon={FileSearch}
+                      title="No Records Found"
+                      message="No patient data matches your current search filters. Adjust your parameters or register a new profile."
+                    />
                   ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
-                        <thead>
-                          <tr className="text-slate-400 uppercase tracking-widest text-xxs font-bold border-b border-slate-200 dark:border-slate-800">
-                            <th className="pb-3">Name</th>
-                            <th className="pb-3">Contact</th>
-                            <th className="pb-3">Age/Sex</th>
-                            <th className="pb-3 text-right">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <>
+                      {/* MOBILE VIEW: Stacked Cards */}
+                      <div className="block md:hidden space-y-4">
+                        <AnimatePresence>
                           {patients.map((p) => (
-                            <tr key={p.id} className="hover:bg-slate-500/5 transition-colors">
-                              <td className="py-3.5 font-bold text-slate-800 dark:text-slate-200">
-                                {p.name}
-                                {p.email && <span className="block text-xxs text-slate-400 font-normal mt-0.5">{p.email}</span>}
-                              </td>
-                              <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">{p.phoneNumber}</td>
-                              <td className="py-3.5 text-slate-500 dark:text-slate-400">
-                                {p.age} yrs / <span className="capitalize">{p.gender}</span>
-                              </td>
-                              <td className="py-3.5 text-right space-x-2">
+                            <motion.div
+                              key={p.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0 }}
+                              className="bg-white p-4 rounded-xl border border-[#3D4532]/10 shadow-sm space-y-3"
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-bold text-[#3D4532] text-lg">
+                                    {p.name}
+                                  </p>
+                                  <p className="text-xs text-[#3D4532]/50">
+                                    {p.email || "No email on file"}
+                                  </p>
+                                </div>
+                                <span className="px-2 py-1 bg-[#FDF8F0] text-[#3D4532]/60 text-[10px] font-black uppercase rounded">
+                                  {p.age}y / {p.gender.charAt(0)}
+                                </span>
+                              </div>
+                              <div className="text-sm font-medium text-[#3D4532]/70">
+                                📞 {p.phoneNumber}
+                              </div>
+                              <div className="pt-3 border-t border-[#3D4532]/5 flex gap-2">
                                 <button
-                                  onClick={() => handleQueueCheckin(p.id, doctorsList[0]?.id)}
-                                  className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-bold hover:bg-teal-500 hover:text-white transition-colors"
+                                  onClick={() =>
+                                    handleQueueCheckin(p.id, doctorsList[0]?.id)
+                                  }
+                                  className="flex-1 py-2 text-xs font-bold rounded-lg bg-[#D3F23A] text-[#3D4532] active:scale-95 transition-transform"
                                 >
                                   Check In
                                 </button>
-                                
-                                {/* Security flaw testing: Receptionist or doctor can delete since check is bypassed */}
                                 <button
                                   onClick={() => handleDeletePatient(p.id)}
-                                  className="text-xxs p-1 rounded bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition-colors"
-                                  title="Delete patient record"
+                                  className="px-4 py-2 text-rose-500 bg-rose-50 active:bg-rose-100 rounded-lg transition-colors flex items-center justify-center"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
-                              </td>
-                            </tr>
+                              </div>
+                            </motion.div>
                           ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        </AnimatePresence>
+                      </div>
+
+                      {/* DESKTOP VIEW: Table */}
+                      <div className="hidden md:block overflow-x-auto rounded-xl border border-[#3D4532]/10 bg-white">
+                        <table className="min-w-[600px] w-full text-left text-sm">
+                          <thead className="bg-[#FDF8F0] text-[#3D4532]/60 uppercase text-[10px] font-extrabold tracking-widest">
+                            <tr>
+                              <th className="px-4 py-3">Name & Email</th>
+                              <th className="px-4 py-3">Contact</th>
+                              <th className="px-4 py-3">Demographics</th>
+                              <th className="px-4 py-3 text-right">
+                                Operations
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#3D4532]/5">
+                            <AnimatePresence>
+                              {patients.map((p) => (
+                                <motion.tr
+                                  key={p.id}
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="hover:bg-[#FDF8F0]/50 transition-colors"
+                                >
+                                  <td className="px-4 py-3">
+                                    <p className="font-bold text-[#3D4532] whitespace-nowrap">
+                                      {p.name}
+                                    </p>
+                                    <p className="text-xs text-[#3D4532]/50 whitespace-nowrap">
+                                      {p.email || "No email on file"}
+                                    </p>
+                                  </td>
+                                  <td className="px-4 py-3 font-medium text-[#3D4532]/70 whitespace-nowrap">
+                                    {p.phoneNumber}
+                                  </td>
+                                  <td className="px-4 py-3 font-medium text-[#3D4532]/70 whitespace-nowrap">
+                                    {p.age}y / {p.gender}
+                                  </td>
+                                  <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                                    <button
+                                      onClick={() =>
+                                        handleQueueCheckin(
+                                          p.id,
+                                          doctorsList[0]?.id,
+                                        )
+                                      }
+                                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#D3F23A] text-[#3D4532] hover:scale-105 transition-transform"
+                                    >
+                                      Check In
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletePatient(p.id)}
+                                      className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors inline-flex align-middle"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </button>
+                                  </td>
+                                </motion.tr>
+                              ))}
+                            </AnimatePresence>
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </motion.div>
+
+                {/* REGISTRATION FORM (Right Column) - Keep unchanged */}
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl shadow-[#3D4532]/5 border border-[#3D4532]/10 h-fit"
+                >
+                  <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                    <UserPlus className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
+                    Register Profile
+                  </h3>
+
+                  {regMessage && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -5 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`p-3 text-xs font-bold rounded-xl mb-4 border ${regMessage.includes("Success") ? "bg-[#D3F23A] text-[#3D4532]" : "bg-rose-50 text-rose-600 border-rose-200"}`}
+                    >
+                      {regMessage}
+                    </motion.div>
                   )}
 
-                  {/* Pagination control */}
-                  <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 font-medium">
-                      Page {patientsPagination.page} of {patientsPagination.totalPages}
-                    </span>
-                    <div className="flex gap-2">
-                      <button
-                        disabled={patientsPagination.page <= 1}
-                        onClick={() => fetchPatients(patientsPagination.page - 1)}
-                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-teal-500/10 disabled:opacity-50 text-xs font-semibold"
-                      >
-                        Prev
-                      </button>
-                      <button
-                        disabled={patientsPagination.page >= patientsPagination.totalPages}
-                        onClick={() => fetchPatients(patientsPagination.page + 1)}
-                        className="px-3 py-1 rounded border border-slate-200 dark:border-slate-700 hover:bg-teal-500/10 disabled:opacity-50 text-xs font-semibold"
-                      >
-                        Next
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Registration Form */}
-              <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800 h-fit">
-                <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                  <UserPlus className="h-5 w-5 text-teal-600" />
-                  New Registration
-                </h3>
-
-                {regMessage && (
-                  <div className={`p-3 text-sm rounded-lg mb-4 ${regMessage.startsWith('Success') ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20' : 'bg-rose-500/15 text-rose-500 border border-rose-500/20'}`}>
-                    {regMessage}
-                  </div>
-                )}
-
-                <form onSubmit={handleRegisterPatient} className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  <div>
-                    <label className="block mb-1">Patient Full Name*</label>
-                    <input
-                      type="text"
-                      required
-                      value={regName}
-                      onChange={(e) => setRegName(e.target.value)}
-                      placeholder="Bruce Wayne"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
+                  <form
+                    onSubmit={handleRegisterPatient}
+                    className="space-y-4 text-sm font-bold text-[#3D4532]"
+                  >
                     <div>
-                      <label className="block mb-1">Age (Years)*</label>
+                      <label className="block mb-1.5">Full Name</label>
                       <input
-                        type="number"
                         required
-                        value={regAge}
-                        onChange={(e) => setRegAge(e.target.value)}
-                        placeholder="35"
-                        className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
+                        type="text"
+                        value={regName}
+                        onChange={(e) => setRegName(e.target.value)}
+                        placeholder="e.g. Bruce Wayne"
+                        className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl focus:ring-2 focus:ring-[#D3F23A] outline-none placeholder:text-[#3D4532]/30 font-medium"
                       />
                     </div>
-                    <div>
-                      <label className="block mb-1">Gender*</label>
-                      <select
-                        value={regGender}
-                        onChange={(e) => setRegGender(e.target.value)}
-                        className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                      >
-                        <option value="Male">Male</option>
-                        <option value="Female">Female</option>
-                        <option value="Other">Other</option>
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block mb-1.5">Age</label>
+                        <input
+                          required
+                          type="number"
+                          value={regAge}
+                          onChange={(e) => setRegAge(e.target.value)}
+                          placeholder="e.g. 35"
+                          className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl focus:ring-2 focus:ring-[#D3F23A] outline-none placeholder:text-[#3D4532]/30 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block mb-1.5">Gender</label>
+                        <select
+                          value={regGender}
+                          onChange={(e) => setRegGender(e.target.value)}
+                          className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl focus:ring-2 focus:ring-[#D3F23A] outline-none font-medium"
+                        >
+                          <option>Male</option>
+                          <option>Female</option>
+                          <option>Other</option>
+                        </select>
+                      </div>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block mb-1">Contact Phone*</label>
-                    <input
-                      type="text"
-                      required
-                      value={regPhone}
-                      onChange={(e) => setRegPhone(e.target.value)}
-                      placeholder="555-0199 (Unchecked format)"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block mb-1">Email Address</label>
-                    <input
-                      type="email"
-                      value={regEmail}
-                      onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="bruce@wayne.com"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block mb-1">Medical Anamnesis / History (Can be left blank)</label>
-                    <textarea
-                      value={regHistory}
-                      onChange={(e) => setRegHistory(e.target.value)}
-                      placeholder="E.g. cardiovascular risks, asthma..."
-                      rows="3"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                    ></textarea>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="glow-btn w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm rounded-lg shadow-md transition-colors duration-300 mt-2"
-                  >
-                    Register Patient Record
-                  </button>
-                </form>
+                    <div>
+                      <label className="block mb-1.5">Contact Number</label>
+                      <input
+                        required
+                        type="tel"
+                        value={regPhone}
+                        onChange={(e) => setRegPhone(e.target.value)}
+                        placeholder="e.g. 555-0199"
+                        className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl focus:ring-2 focus:ring-[#D3F23A] outline-none placeholder:text-[#3D4532]/30 font-medium"
+                      />
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      type="submit"
+                      className="w-full py-3.5 bg-[#FF5E29] text-white font-extrabold rounded-xl shadow-lg shadow-[#FF5E29]/20 mt-4"
+                    >
+                      Initialize Profile
+                    </motion.button>
+                  </form>
+                </motion.div>
               </div>
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
 
-        {/* ==============================================================
-            TAB: SCHEDULING / BOOKING & CHECKIN (RECEPTIONIST & ADMIN)
-            ============================================================== */}
-        {activeTab === 'book' && (
-          <div className="grid gap-8 lg:grid-cols-2">
-            {/* Book Appointment Card */}
-            <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
-              <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                <CalendarDays className="h-5 w-5 text-teal-600" />
-                Schedule Appointment Slot
-              </h3>
-
-              {bookingMessage && (
-                <div className={`p-3 text-sm rounded-lg mb-4 ${bookingMessage.startsWith('Success') ? 'bg-teal-500/15 text-teal-600 dark:text-teal-400 border border-teal-500/20' : 'bg-rose-500/15 text-rose-500 border border-rose-500/20'}`}>
-                  {bookingMessage}
-                </div>
-              )}
-
-              <form onSubmit={handleBookAppointment} className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                <div>
-                  <label className="block mb-1">Select Registered Patient*</label>
-                  <select
-                    required
-                    value={bookingPatientId}
-                    onChange={(e) => setBookingPatientId(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
+          {/* TAB: BOOKING (No Tables, untouched) */}
+          {activeTab === "book" && (
+            <motion.div
+              key="book"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="grid gap-6 lg:gap-8 lg:grid-cols-2"
+            >
+              <motion.div
+                variants={itemVariants}
+                className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl shadow-[#3D4532]/5 border border-[#3D4532]/10"
+              >
+                <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                  <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
+                  Schedule Appointment
+                </h3>
+                {bookingMessage && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className={`p-3 text-xs font-bold rounded-xl mb-4 border ${bookingMessage.includes("Success") ? "bg-[#D3F23A] text-[#3D4532]" : "bg-rose-50 text-rose-600 border-rose-200"}`}
                   >
-                    <option value="">-- Choose Patient --</option>
-                    {patients.map(p => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.phoneNumber})</option>
-                    ))}
-                  </select>
-                  <span className="text-xxs text-slate-400 block mt-1">If client is missing, register them in the Directory tab first.</span>
-                </div>
-
-                <div>
-                  <label className="block mb-1">Select Physician*</label>
-                  <select
-                    required
-                    value={bookingDoctorId}
-                    onChange={(e) => setBookingDoctorId(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                  >
-                    <option value="">-- Choose Physician --</option>
-                    {doctorsList.map(d => (
-                      <option key={d.id} value={d.id}>{d.name} - {d.specialization} (${d.consultationFee})</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block mb-1">Appointment Date & Time*</label>
-                  <input
-                    type="datetime-local"
-                    required
-                    value={bookingDate}
-                    onChange={(e) => setBookingDate(e.target.value)}
-                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block mb-1">Consultation Objective / Reason</label>
-                  <input
-                    type="text"
-                    value={bookingReason}
-                    onChange={(e) => setBookingReason(e.target.value)}
-                    placeholder="Regular diagnostic review, suture removal..."
-                    className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="glow-btn w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-extrabold text-sm rounded-lg shadow-md transition-colors duration-300 mt-2"
+                    {bookingMessage}
+                  </motion.div>
+                )}
+                <form
+                  onSubmit={handleBookAppointment}
+                  className="space-y-4 text-sm font-bold text-[#3D4532]"
                 >
-                  Book Appointment Slot
-                </button>
-              </form>
-            </div>
-
-            {/* Quick Walkin Checkin Token Board */}
-            <div className="glass p-6 rounded-2xl shadow-md border border-slate-200 dark:border-slate-800">
-              <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                <Activity className="h-5 w-5 text-teal-600" />
-                Active Direct Queue Check-In
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-semibold">
-                Generate an immediate waiting token for a direct walk-in patient. Allocates active positions under selected practitioners.
-              </p>
-
-              <div className="space-y-6">
-                <div className="p-4 rounded-xl border border-teal-500/25 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
-                  <strong>Token Generation Engine Note:</strong> Direct arrivals bypass appointments. The token engine automatically fetches the current days maximum token size and increments. 
-                  <span className="block mt-1 font-bold text-rose-500 uppercase tracking-wide">Warning: Vulnerable to check-in race conditions!</span>
-                </div>
-
-                <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
                   <div>
-                    <label className="block mb-1">Select Walk-in Patient*</label>
+                    <label className="block mb-1.5">Select Patient</label>
                     <select
-                      id="walkin-patient"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
+                      required
+                      value={bookingPatientId}
+                      onChange={(e) => setBookingPatientId(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl outline-none font-medium"
                     >
-                      <option value="">-- Choose Patient --</option>
-                      {patients.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                      <option value="">-- Require Selection --</option>
+                      {patients.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
                       ))}
                     </select>
                   </div>
-
                   <div>
-                    <label className="block mb-1">Assign Physician*</label>
+                    <label className="block mb-1.5">Select Physician</label>
                     <select
-                      id="walkin-doctor"
-                      className="block w-full px-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 text-sm focus:outline-none"
+                      required
+                      value={bookingDoctorId}
+                      onChange={(e) => setBookingDoctorId(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl outline-none font-medium"
                     >
-                      <option value="">-- Choose Physician --</option>
-                      {doctorsList.map(d => (
-                        <option key={d.id} value={d.id}>{d.name} ({d.specialization})</option>
+                      <option value="">-- Require Selection --</option>
+                      {doctorsList.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} ({d.specialization})
+                        </option>
                       ))}
                     </select>
                   </div>
-
-                  <button
-                    onClick={() => {
-                      const pId = document.getElementById('walkin-patient').value;
-                      const dId = document.getElementById('walkin-doctor').value;
-                      if (!pId || !dId) {
-                        alert('Select patient and doctor first');
-                        return;
-                      }
-                      handleQueueCheckin(pId, dId);
-                    }}
-                    className="glow-btn w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white dark:bg-teal-500 dark:text-slate-950 dark:hover:bg-teal-400 font-extrabold text-sm rounded-lg shadow-md transition-colors duration-300 mt-2"
+                  <div>
+                    <label className="block mb-1.5">Date & Time</label>
+                    <input
+                      required
+                      type="datetime-local"
+                      value={bookingDate}
+                      onChange={(e) => setBookingDate(e.target.value)}
+                      className="w-full px-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl outline-none font-medium"
+                    />
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    type="submit"
+                    className="w-full py-3.5 bg-[#FF5E29] text-white font-extrabold rounded-xl shadow-lg mt-4"
                   >
-                    Generate Live Token
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+                    Confirm Slot
+                  </motion.button>
+                </form>
+              </motion.div>
 
-        {/* ==============================================================
-            TAB: DOCTOR WORKLIST - APPOINTMENTS (DOCTOR ROLE)
-            ============================================================== */}
-        {activeTab === 'appointments' && (
-          <div className="space-y-6">
-            <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
-              <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-                <CalendarDays className="h-5 w-5 text-teal-600" />
+              <motion.div
+                variants={itemVariants}
+                className="bg-[#3D4532] p-4 sm:p-6 rounded-[2rem] shadow-xl border border-[#3D4532]/10 text-white"
+              >
+                <h3 className="text-lg sm:text-xl font-extrabold flex items-center gap-2 mb-2 text-[#D3F23A]">
+                  <Activity className="h-5 w-5 sm:h-6 sm:w-6" />
+                  Live Walk-in Override
+                </h3>
+                <p className="text-sm text-white/60 mb-6">
+                  Bypass scheduling. Force immediate queue insertion.
+                </p>
+                <div className="space-y-4 font-bold text-sm">
+                  <div>
+                    <label className="block mb-1.5 text-white/80">
+                      Target Patient
+                    </label>
+                    <select
+                      id="w-pat"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white outline-none font-medium"
+                    >
+                      <option value="" className="text-black">
+                        -- Select --
+                      </option>
+                      {patients.map((p) => (
+                        <option key={p.id} value={p.id} className="text-black">
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block mb-1.5 text-white/80">
+                      Target Physician
+                    </label>
+                    <select
+                      id="w-doc"
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white outline-none font-medium"
+                    >
+                      <option value="" className="text-black">
+                        -- Select --
+                      </option>
+                      {doctorsList.map((d) => (
+                        <option key={d.id} value={d.id} className="text-black">
+                          {d.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    onClick={() => {
+                      const p = document.getElementById("w-pat").value;
+                      const d = document.getElementById("w-doc").value;
+                      if (p && d) handleQueueCheckin(p, d);
+                    }}
+                    className="w-full py-3.5 bg-[#D3F23A] text-[#3D4532] font-extrabold rounded-xl mt-4 active:scale-95 transition-transform"
+                  >
+                    Execute Immediate Token
+                  </motion.button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* TAB: DOCTOR APPOINTMENTS */}
+          {activeTab === "appointments" && (
+            <motion.div
+              key="appointments"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-[#3D4532]/10"
+            >
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                <CalendarDays className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
                 Scheduled Daily Bookings List
               </h3>
 
               {doctorAppointments.length === 0 ? (
-                <p className="text-center py-6 text-slate-400 text-sm">No appointments scheduled for you today.</p>
+                <EmptyState
+                  icon={Inbox}
+                  title="Schedule Clear"
+                  message="You have no appointments booked for today. Enjoy the downtime or check the active queue for walk-ins."
+                />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
-                    <thead>
-                      <tr className="text-slate-400 uppercase tracking-widest text-xxs font-bold border-b border-slate-200 dark:border-slate-800">
-                        <th className="pb-3">Time</th>
-                        <th className="pb-3">Patient</th>
-                        <th className="pb-3">Consultation Reason</th>
-                        <th className="pb-3">Status</th>
-                        <th className="pb-3 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                <>
+                  {/* MOBILE VIEW: Stacked Cards */}
+                  <div className="block md:hidden space-y-4">
+                    <AnimatePresence>
                       {doctorAppointments.map((app) => (
-                        <tr key={app.id} className="hover:bg-slate-500/5 transition-colors">
-                          <td className="py-3.5 font-mono font-bold text-slate-800 dark:text-slate-200">
-                            {new Date(app.appointmentDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </td>
-                          <td className="py-3.5">
-                            <button
-                              onClick={() => setSelectedPatientHistory(app.patient)}
-                              className="font-bold text-teal-600 hover:underline hover:text-teal-700 transition-colors"
+                        <motion.div
+                          key={app.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0 }}
+                          className="bg-white p-4 rounded-xl border border-[#3D4532]/10 shadow-sm flex flex-col gap-3"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-bold text-[#3D4532] text-lg">
+                                {app.patient?.name || "Unknown"}
+                              </p>
+                              <p className="font-mono text-sm font-bold text-[#3D4532]/60">
+                                {new Date(
+                                  app.appointmentDate,
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </p>
+                            </div>
+                            <span
+                              className={`px-2 py-1 rounded text-[10px] font-black tracking-widest uppercase ${app.status === "COMPLETED" ? "bg-[#D3F23A] text-[#3D4532]" : "bg-[#FDF8F0] text-[#3D4532]/60"}`}
                             >
-                              {app.patient ? app.patient.name : 'Unknown Patient'}
-                            </button>
-                            <span className="block text-xxs text-slate-400 mt-0.5">Age: {app.patient?.age}</span>
-                          </td>
-                          <td className="py-3.5 text-slate-500 dark:text-slate-400 font-semibold">{app.reason || 'None provided'}</td>
-                          <td className="py-3.5">
-                            <span className={`inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${app.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-600' : app.status === 'CANCELLED' ? 'bg-rose-500/10 text-rose-500' : 'bg-amber-500/10 text-amber-500'}`}>
                               {app.status}
                             </span>
-                          </td>
-                          <td className="py-3.5 text-right space-x-2">
-                            {app.status === 'PENDING' && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    const matchedDoc = doctorsList.find(d => d.userId === user.id);
-                                    handleQueueCheckin(app.patientId, matchedDoc.id, app.id);
-                                  }}
-                                  className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
-                                >
-                                  Check In Patient
-                                </button>
-                                <button
-                                  onClick={() => handleCompleteAppointment(app.id)}
-                                  className="text-xxs px-2.5 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
-                                >
-                                  Complete
-                                </button>
-                              </>
-                            )}
-                          </td>
-                        </tr>
+                          </div>
+
+                          {app.status === "PENDING" && (
+                            <div className="pt-3 border-t border-[#3D4532]/5 flex gap-2">
+                              <button
+                                onClick={() => {
+                                  const matchedDoc = doctorsList.find(
+                                    (d) => d.userId === user.id,
+                                  );
+                                  handleQueueCheckin(
+                                    app.patientId,
+                                    matchedDoc.id,
+                                    app.id,
+                                  );
+                                }}
+                                className="flex-1 py-2.5 text-xs font-bold rounded-lg bg-[#D3F23A] text-[#3D4532] active:scale-95 transition-transform"
+                              >
+                                Check In
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleCompleteAppointment(app.id)
+                                }
+                                className="flex-1 py-2.5 text-xs font-bold rounded-lg bg-[#3D4532] text-white active:scale-95 transition-transform"
+                              >
+                                Complete
+                              </button>
+                            </div>
+                          )}
+                        </motion.div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-
-            {/* Patient Clinical History Modal Display */}
-            {selectedPatientHistory && (
-              <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100">
-                      Medical Records: {selectedPatientHistory.name}
-                    </h3>
-                    <p className="text-xxs font-bold text-slate-400 uppercase tracking-widest mt-1">
-                      Gender: {selectedPatientHistory.gender} | Contact: {selectedPatientHistory.phoneNumber}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => setSelectedPatientHistory(null)}
-                    className="text-xs font-bold text-slate-400 hover:text-slate-600"
-                  >
-                    Close
-                  </button>
-                </div>
-
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
-                  <h4 className="font-bold text-slate-400 uppercase tracking-wider">Clinical Background Information</h4>
-                  
-                  {/* FRONTEND CRASH BUG:
-                      Assuming medicalHistory is always populated. Accesses a method on a nullable property
-                      without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
-                      this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
-                  <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
-                  </p>
-                </div>
-
-                <div className="pt-2 flex justify-between items-center text-xs">
-                  {/* Incomplete Missing Route trigger -> will route to 404 page! */}
-                  <Link 
-                    href={`/patients/${selectedPatientHistory.id}/history-records`} 
-                    className="text-teal-600 font-extrabold hover:underline flex items-center gap-1"
-                  >
-                    View Diagnostic Reports Details (Legacy App)
-                    <ArrowRight className="h-3 w-3" />
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ==============================================================
-            TAB: DOCTOR ACTIVE CALLING QUEUE (DOCTOR ROLE)
-            ============================================================== */}
-        {activeTab === 'queue' && (
-          <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
-            <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2 mb-4">
-              <Clock className="h-5 w-5 text-teal-600" />
-              Active Operations Queue Controller
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-semibold">
-              Manage patient call sequences for live monitors. Update status from waiting to active calling.
-            </p>
-
-            {doctorQueue.length === 0 ? (
-              <p className="text-center py-6 text-slate-400 text-sm">No checked-in patients in queue today.</p>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {doctorQueue.map((t) => (
-                  <div
-                    key={t.id}
-                    className={`p-5 rounded-2xl border shadow-md relative overflow-hidden flex flex-col justify-between ${t.status === 'CALLING' ? 'border-teal-500 bg-teal-500/10' : 'border-slate-200 dark:border-slate-800 bg-slate-500/5'}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <span className="text-2xl font-black text-slate-800 dark:text-slate-100">Token #{t.tokenNumber}</span>
-                      <span className={`px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase ${t.status === 'CALLING' ? 'bg-teal-500 text-white' : t.status === 'COMPLETED' ? 'bg-teal-500/10 text-teal-600' : 'bg-amber-500/10 text-amber-500'}`}>
-                        {t.status}
-                      </span>
-                    </div>
-
-                    <div className="mt-4">
-                      <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200">{t.patient.name}</h4>
-                      <p className="text-xxs text-slate-400 mt-0.5">Contact: {t.patient.phoneNumber}</p>
-                    </div>
-
-                    <div className="mt-6 flex gap-2">
-                      {t.status === 'WAITING' && (
-                        <button
-                          onClick={() => handleUpdateQueueStatus(t.id, 'CALLING')}
-                          className="flex-1 py-1.5 bg-teal-600 text-white font-bold text-xxs rounded hover:bg-teal-700 transition-colors"
-                        >
-                          Call Patient
-                        </button>
-                      )}
-                      {t.status === 'CALLING' && (
-                        <>
-                          <button
-                            onClick={() => handleUpdateQueueStatus(t.id, 'COMPLETED')}
-                            className="flex-1 py-1.5 bg-teal-600 text-white font-bold text-xxs rounded hover:bg-teal-700 transition-colors"
-                          >
-                            Consulted
-                          </button>
-                          <button
-                            onClick={() => handleUpdateQueueStatus(t.id, 'SKIPPED')}
-                            className="flex-1 py-1.5 bg-rose-500/10 text-rose-500 font-bold text-xxs rounded hover:bg-rose-500 hover:text-white transition-colors"
-                          >
-                            Skip / No Show
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ==============================================================
-            TAB: SYSTEM REPORTS (ADMIN ROLE)
-            ============================================================== */}
-        {activeTab === 'reports' && (
-          <div className="space-y-8">
-            <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-teal-600" />
-                    Doctor Revenue & Operations Report
-                  </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                    System-wide practitioner performance audits. Computes completed bookings and potential sales.
-                  </p>
-                </div>
-                <button
-                  onClick={generateSystemReport}
-                  disabled={adminReportLoading}
-                  className="glow-btn px-4 py-2 bg-teal-600 text-white font-extrabold text-xs rounded-lg shadow hover:bg-teal-700 disabled:opacity-50 transition-colors"
-                >
-                  {adminReportLoading ? 'Aggregating...' : 'Load Doctor System Audit Report'}
-                </button>
-              </div>
-
-              {adminReportLoading ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <div className="pulse-loader">
-                    <div></div>
-                    <div></div>
-                  </div>
-                  <p className="mt-4 text-xs font-semibold text-slate-400 animate-pulse">
-                    Executing sequential nested loop aggregates. Event loop is locked...
-                  </p>
-                </div>
-              ) : !adminReportData ? (
-                <div className="p-8 text-center bg-slate-100 dark:bg-slate-800/40 rounded-xl text-slate-400 text-xs font-semibold border border-dashed border-slate-200 dark:border-slate-700">
-                  Click the button above to load reports. Warning: Endpoint is extremely slow on larger doctor count tables!
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Reporting details benchmark */}
-                  <div className="flex items-center gap-3 p-3 bg-amber-500/10 text-slate-700 dark:text-slate-300 text-xs rounded-lg border border-amber-500/20 leading-5">
-                    <Clock className="h-5 w-5 text-amber-500 shrink-0" />
-                    <div>
-                      <strong>Performance Diagnostic:</strong> API execution resolved in{' '}
-                      <span className="font-bold text-amber-500">{adminReportData.timeTakenMs} ms</span>. 
-                      Sequential nested database calls loops reduce throughput. Optimization using Promise.all or single join aggregate is required.
-                    </div>
+                    </AnimatePresence>
                   </div>
 
-                  {/* Summary widgets */}
-                  <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Total Physicians</span>
-                      <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">{adminReportData.data.length}</h4>
-                    </div>
-                    <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Sum appointments</span>
-                      <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                        {adminReportData.data.reduce((sum, item) => sum + item.totalAppointments, 0)}
-                      </h4>
-                    </div>
-                    <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
-                      <span className="text-xxs uppercase tracking-wider text-slate-400 font-bold">Total Sales ($)</span>
-                      <h4 className="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">
-                        ${adminReportData.data.reduce((sum, item) => sum + item.revenue, 0)}
-                      </h4>
-                    </div>
-                  </div>
-
-                  {/* Table representation */}
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
-                      <thead>
-                        <tr className="text-slate-400 uppercase tracking-widest text-xxs font-bold border-b border-slate-200 dark:border-slate-800">
-                          <th className="pb-3">Doctor</th>
-                          <th className="pb-3">Department</th>
-                          <th className="pb-3 text-center">Consultations</th>
-                          <th className="pb-3 text-center">Today Queue</th>
-                          <th className="pb-3 text-right">Revenue</th>
+                  {/* DESKTOP VIEW: Table */}
+                  <div className="hidden md:block overflow-x-auto rounded-xl border border-[#3D4532]/10 bg-white">
+                    <table className="min-w-[600px] w-full text-left text-sm">
+                      <thead className="bg-[#FDF8F0] text-[#3D4532]/60 uppercase text-[10px] font-extrabold tracking-widest">
+                        <tr>
+                          <th className="px-4 py-3">Time</th>
+                          <th className="px-4 py-3">Patient</th>
+                          <th className="px-4 py-3">Status</th>
+                          <th className="px-4 py-3 text-right">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {adminReportData.data.map((item) => (
-                          <tr key={item.id} className="hover:bg-slate-500/5 transition-colors">
-                            <td className="py-3.5 font-bold text-slate-800 dark:text-slate-200">
+                      <tbody className="divide-y divide-[#3D4532]/5">
+                        <AnimatePresence>
+                          {doctorAppointments.map((app) => (
+                            <motion.tr
+                              key={app.id}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="hover:bg-[#FDF8F0]/50 transition-colors"
+                            >
+                              <td className="px-4 py-3 font-mono font-bold text-[#3D4532] whitespace-nowrap">
+                                {new Date(
+                                  app.appointmentDate,
+                                ).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <p className="font-bold text-[#3D4532]">
+                                  {app.patient?.name || "Unknown"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span
+                                  className={`inline-flex px-2 py-1 rounded text-[10px] font-black tracking-widest uppercase ${app.status === "COMPLETED" ? "bg-[#D3F23A] text-[#3D4532]" : "bg-[#FDF8F0] text-[#3D4532]/60"}`}
+                                >
+                                  {app.status}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                                {app.status === "PENDING" && (
+                                  <>
+                                    <button
+                                      onClick={() => {
+                                        const matchedDoc = doctorsList.find(
+                                          (d) => d.userId === user.id,
+                                        );
+                                        handleQueueCheckin(
+                                          app.patientId,
+                                          matchedDoc.id,
+                                          app.id,
+                                        );
+                                      }}
+                                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#D3F23A] text-[#3D4532] hover:scale-105 transition-transform"
+                                    >
+                                      Check In
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        handleCompleteAppointment(app.id)
+                                      }
+                                      className="px-3 py-1.5 text-xs font-bold rounded-lg bg-[#3D4532] text-white hover:scale-105 transition-transform"
+                                    >
+                                      Complete
+                                    </button>
+                                  </>
+                                )}
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </AnimatePresence>
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB: DOCTOR QUEUE (Already uses cards, left mostly untouched) */}
+          {activeTab === "queue" && (
+            <motion.div
+              key="queue"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-[#3D4532]/10"
+            >
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
+                Live Sequence Monitor
+              </h3>
+
+              {doctorQueue.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title="Queue Empty"
+                  message="There are currently no patients waiting in your physical queue line."
+                />
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <AnimatePresence>
+                    {doctorQueue.map((t) => (
+                      <motion.div
+                        key={t.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.9 }}
+                        className={`p-5 rounded-2xl border-2 shadow-sm flex flex-col justify-between ${t.status === "CALLING" ? "border-[#FF5E29] bg-[#FF5E29]/5" : "border-[#3D4532]/10 bg-white"}`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-center mb-4">
+                            <span className="text-3xl font-black text-[#3D4532]">
+                              #{t.tokenNumber}
+                            </span>
+                            <span
+                              className={`px-2 py-1 rounded text-[10px] font-black tracking-widest uppercase ${t.status === "CALLING" ? "bg-[#FF5E29] text-white shadow-sm" : "bg-[#FDF8F0] text-[#3D4532]/60"}`}
+                            >
+                              {t.status}
+                            </span>
+                          </div>
+                          <p className="font-bold text-[#3D4532] text-lg leading-tight truncate">
+                            {t.patient.name}
+                          </p>
+                        </div>
+
+                        <div className="mt-6 flex flex-wrap gap-2">
+                          {t.status === "WAITING" && (
+                            <button
+                              onClick={() =>
+                                handleUpdateQueueStatus(t.id, "CALLING")
+                              }
+                              className="flex-1 min-w-[100px] py-3 bg-[#D3F23A] text-[#3D4532] font-extrabold rounded-xl text-xs active:scale-95 transition-transform shadow-sm"
+                            >
+                              Call Next
+                            </button>
+                          )}
+                          {t.status === "CALLING" && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleUpdateQueueStatus(t.id, "COMPLETED")
+                                }
+                                className="flex-1 min-w-[80px] py-3 bg-[#3D4532] text-white font-extrabold rounded-xl text-xs active:scale-95 transition-transform shadow-sm"
+                              >
+                                Clear
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleUpdateQueueStatus(t.id, "SKIPPED")
+                                }
+                                className="flex-1 min-w-[80px] py-3 bg-rose-50 text-rose-600 font-extrabold rounded-xl text-xs active:scale-95 transition-transform"
+                              >
+                                Skip
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB: ADMIN REPORTS */}
+          {activeTab === "reports" && (
+            <motion.div
+              key="reports"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-[#3D4532]/10"
+            >
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 sm:mb-8">
+                <div>
+                  <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
+                    Revenue Aggregation
+                  </h3>
+                  <p className="text-xs sm:text-sm text-[#3D4532]/60 font-medium mt-1">
+                    Compile system-wide financial and operational metrics.
+                  </p>
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={generateSystemReport}
+                  className="w-full sm:w-auto px-6 py-3.5 bg-[#3D4532] text-white font-extrabold rounded-xl shadow-lg active:scale-95 md:hover:bg-[#FF5E29] transition-colors whitespace-nowrap"
+                >
+                  {adminReportLoading ? "Processing..." : "Execute Audit"}
+                </motion.button>
+              </div>
+
+              {!adminReportData && !adminReportLoading && (
+                <EmptyState
+                  icon={TrendingUp}
+                  title="Awaiting Execution"
+                  message="Click 'Execute Audit' above to compile current system revenue and performance aggregates."
+                />
+              )}
+
+              {adminReportLoading && (
+                <div className="h-48 flex items-center justify-center bg-white/40 rounded-2xl border border-[#3D4532]/5">
+                  <span className="flex items-center gap-2 text-sm font-bold text-[#3D4532]/40 uppercase tracking-widest animate-pulse">
+                    <Activity className="h-4 w-4" /> Crunching Metrics...
+                  </span>
+                </div>
+              )}
+
+              {adminReportData && !adminReportLoading && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="space-y-6 sm:space-y-8"
+                >
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
+                    <div className="p-4 sm:p-6 bg-[#FDF8F0] rounded-2xl border border-[#3D4532]/10">
+                      <p className="text-[10px] sm:text-xs font-black text-[#3D4532]/40 uppercase tracking-widest">
+                        Gross Revenue
+                      </p>
+                      <p className="text-3xl sm:text-4xl font-black text-[#FF5E29] mt-2">
+                        $
+                        {adminReportData.data.reduce(
+                          (sum, i) => sum + i.revenue,
+                          0,
+                        )}
+                      </p>
+                    </div>
+                    <div className="p-4 sm:p-6 bg-[#FDF8F0] rounded-2xl border border-[#3D4532]/10">
+                      <p className="text-[10px] sm:text-xs font-black text-[#3D4532]/40 uppercase tracking-widest">
+                        Total Physicians
+                      </p>
+                      <p className="text-3xl sm:text-4xl font-black text-[#3D4532] mt-2">
+                        {adminReportData.data.length}
+                      </p>
+                    </div>
+                    <div className="p-4 sm:p-6 bg-[#FDF8F0] rounded-2xl border border-[#3D4532]/10">
+                      <p className="text-[10px] sm:text-xs font-black text-[#3D4532]/40 uppercase tracking-widest">
+                        Appointments
+                      </p>
+                      <p className="text-3xl sm:text-4xl font-black text-[#3D4532] mt-2">
+                        {adminReportData.data.reduce(
+                          (sum, i) => sum + i.totalAppointments,
+                          0,
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* MOBILE VIEW: Stacked Cards */}
+                  <div className="block md:hidden space-y-4">
+                    {adminReportData.data.map((item) => (
+                      <div
+                        key={item.id}
+                        className="bg-white p-4 rounded-xl border border-[#3D4532]/10 shadow-sm flex flex-col gap-3"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-bold text-[#3D4532] text-lg">
                               {item.name}
-                              <span className="block text-xxs text-teal-600 dark:text-teal-400 font-semibold uppercase mt-0.5">{item.specialization}</span>
+                            </p>
+                            <p className="text-xs font-bold text-[#FF5E29] uppercase tracking-wider">
+                              {item.specialization}
+                            </p>
+                          </div>
+                          <span className="font-black text-[#3D4532] text-lg">
+                            ${item.revenue}
+                          </span>
+                        </div>
+                        <div className="pt-2 border-t border-[#3D4532]/5 text-sm font-medium text-[#3D4532]/70">
+                          {item.completedAppointments} /{" "}
+                          {item.totalAppointments} Consults Completed
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* DESKTOP VIEW: Table */}
+                  <div className="hidden md:block overflow-x-auto rounded-xl border border-[#3D4532]/10 bg-white">
+                    <table className="min-w-[600px] w-full text-left text-sm">
+                      <thead className="bg-[#FDF8F0] text-[#3D4532]/60 uppercase text-[10px] font-extrabold tracking-widest">
+                        <tr>
+                          <th className="px-4 py-3">Physician</th>
+                          <th className="px-4 py-3">Consultations</th>
+                          <th className="px-4 py-3 text-right">
+                            Revenue Generated
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#3D4532]/5">
+                        {adminReportData.data.map((item) => (
+                          <tr
+                            key={item.id}
+                            className="hover:bg-[#FDF8F0]/50 transition-colors"
+                          >
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <p className="font-bold text-[#3D4532]">
+                                {item.name}
+                              </p>
+                              <p className="text-[10px] sm:text-xs font-bold text-[#FF5E29] uppercase tracking-wider">
+                                {item.specialization}
+                              </p>
                             </td>
-                            <td className="py-3.5 text-slate-500 dark:text-slate-400">{item.department}</td>
-                            <td className="py-3.5 text-center text-slate-500 dark:text-slate-400">
-                              {item.completedAppointments} Completed / {item.totalAppointments} Total
+                            <td className="px-4 py-3 font-medium text-[#3D4532]/70 whitespace-nowrap">
+                              {item.completedAppointments} /{" "}
+                              {item.totalAppointments} Completed
                             </td>
-                            <td className="py-3.5 text-center font-bold text-slate-800 dark:text-slate-200">{item.todayQueueSize} in queue</td>
-                            <td className="py-3.5 text-right font-bold text-teal-600 dark:text-teal-400">${item.revenue}</td>
+                            <td className="px-4 py-3 text-right font-black text-[#3D4532] whitespace-nowrap">
+                              ${item.revenue}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
                   </div>
+                </motion.div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB: PHYSICIAN REGISTRY (Already uses cards, untouched) */}
+          {activeTab === "physicians" && (
+            <motion.div
+              key="physicians"
+              variants={tabVariants}
+              initial="hidden"
+              animate="enter"
+              exit="exit"
+              className="bg-white/60 backdrop-blur p-4 sm:p-6 rounded-[2rem] shadow-xl border border-[#3D4532]/10"
+            >
+              <h3 className="text-lg sm:text-xl font-extrabold text-[#3D4532] flex items-center gap-2 mb-4 sm:mb-6">
+                <Stethoscope className="h-5 w-5 sm:h-6 sm:w-6 text-[#FF5E29]" />
+                Staff Physicians Registry
+              </h3>
+
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-1 group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-[#3D4532]/40 group-focus-within:text-[#FF5E29] transition-colors" />
+                  <input
+                    type="text"
+                    value={adminSearchQuery}
+                    onChange={(e) => setAdminSearchQuery(e.target.value)}
+                    placeholder="Execute name search..."
+                    className="w-full pl-11 pr-4 py-3 bg-white border border-[#3D4532]/10 rounded-xl text-sm font-medium focus:ring-2 focus:ring-[#D3F23A] focus:outline-none transition-all shadow-sm"
+                  />
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  onClick={searchPhysiciansAdmin}
+                  className="w-full sm:w-auto px-6 py-3 bg-[#3D4532] text-white font-extrabold rounded-xl shadow-lg active:scale-95 transition-colors"
+                >
+                  Search
+                </motion.button>
+              </div>
+
+              <div className="p-4 mb-6 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex flex-col sm:flex-row gap-3 text-sm shadow-sm">
+                <ShieldAlert className="h-5 w-5 shrink-0" />
+                <div>
+                  <strong className="block font-black uppercase tracking-wider mb-1">
+                    Vulnerability Alert
+                  </strong>
+                  This search route utilizes raw SQL interpolation. It is
+                  intentionally vulnerable to injection.
+                </div>
+              </div>
+
+              {doctorsList.length === 0 ? (
+                <EmptyState
+                  icon={Stethoscope}
+                  title="No Physicians Listed"
+                  message="Execute a search query to load staff records."
+                />
+              ) : (
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  <AnimatePresence>
+                    {doctorsList.map((doc) => (
+                      <motion.div
+                        key={doc.id}
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="p-5 rounded-2xl bg-white border border-[#3D4532]/10 shadow-sm"
+                      >
+                        <span className="inline-block px-2 py-1 bg-[#FDF8F0] text-[#FF5E29] text-[10px] font-black uppercase tracking-widest rounded mb-3">
+                          {doc.department}
+                        </span>
+                        <h4 className="font-black text-lg text-[#3D4532] truncate">
+                          {doc.name}
+                        </h4>
+                        <p className="text-xs text-[#3D4532]/60 font-bold mb-4 truncate">
+                          {doc.specialization}
+                        </p>
+                        <div className="pt-4 border-t border-[#3D4532]/10 flex justify-between items-center text-xs">
+                          <span className="font-medium text-[#3D4532]/60">
+                            Exp: {doc.experience}y
+                          </span>
+                          <span className="font-black text-[#3D4532]">
+                            Fee: ${doc.consultationFee}
+                          </span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
                 </div>
               )}
-            </div>
-          </div>
-        )}
-
-        {/* ==============================================================
-            TAB: PHYSICIAN REGISTRY (ADMIN ROLE - SQL INJECTION VULNERABILITY)
-            ============================================================== */}
-        {activeTab === 'physicians' && (
-          <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
-            <div>
-              <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                <Award className="h-5 w-5 text-teal-600" />
-                Staff Physicians Registry Lookup
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                Database lookup for credentials. Uses a raw SQL interpolation backend query.
-              </p>
-            </div>
-
-            <div className="flex gap-4">
-              <div className="relative flex-1 rounded-lg shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                  <Search className="h-4 w-4" />
-                </div>
-                <input
-                  type="text"
-                  value={adminSearchQuery}
-                  onChange={(e) => setAdminSearchQuery(e.target.value)}
-                  placeholder="Enter physician name search criteria (raw syntax supported)..."
-                  className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
-                />
-              </div>
-
-              <button
-                onClick={searchPhysiciansAdmin}
-                className="glow-btn px-5 py-2 bg-slate-900 text-white dark:bg-teal-500 dark:text-slate-950 font-bold text-xs rounded-lg hover:bg-slate-800 dark:hover:bg-teal-400 transition-colors"
-              >
-                Execute SQL Query
-              </button>
-            </div>
-
-            <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
-              <div>
-                <strong>SQL Vulnerability alert:</strong> This search executes raw interpolation: 
-                <code className="block bg-black/10 dark:bg-black/30 p-1.5 rounded mt-1 font-mono">
-                  SELECT * FROM &quot;Doctor&quot; WHERE name ILIKE &apos;%&#123;query&#125;%&apos;
-                </code>
-                Can be audited by inputting standard SQL injection strings to leak full user login lists.
-              </div>
-            </div>
-
-            {/* Doctors Result List */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {doctorsList.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-500/5 flex flex-col justify-between"
-                >
-                  <div>
-                    <span className="inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-2">
-                      {doc.department}
-                    </span>
-                    <h4 className="font-extrabold text-slate-800 dark:text-slate-100">{doc.name}</h4>
-                    <p className="text-xs text-slate-400 mt-0.5">{doc.specialization}</p>
-                  </div>
-                  <div className="mt-6 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex justify-between items-center text-xs font-semibold text-slate-500">
-                    <span>Exp: {doc.experience} yrs</span>
-                    <span className="font-bold text-teal-600 dark:text-teal-400">Fee: ${doc.consultationFee}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
