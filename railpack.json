@@ -1,0 +1,15 @@
+{
+  "$schema": "https://schema.railpack.com",
+  "steps": {
+    "install": {
+      "commands": ["npm install --prefix backend"]
+    },
+    "build": {
+      "inputs": [{ "step": "install" }],
+      "commands": ["npm run prisma:generate --prefix backend"]
+    }
+  },
+  "deploy": {
+    "startCommand": "sh -c \"cd backend && node scripts/start-prod.js\""
+  }
+}

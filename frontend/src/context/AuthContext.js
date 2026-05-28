@@ -2,6 +2,7 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useRouter } from 'next/navigation';
+import { getApiBaseUrl, parseApiResponse } from '@/lib/api';
 
 const AuthContext = createContext();
 
@@ -12,10 +13,7 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const router = useRouter();
 
-  // HARDCODED API VALUE: Intentionally hardcoding the backend base URL on the frontend!
-  // This violates production standards and prevents simple domain config, but serves as
-  // a perfect exercise for internship candidates to move to environment variables.
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const API_BASE_URL = getApiBaseUrl();
 
   useEffect(() => {
     // Check for stored token and user on initialization
@@ -46,7 +44,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
 
       if (!response.ok) {
         throw new Error(data.error || 'Authentication failed');
@@ -86,7 +84,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ name, email, password, role }),
       });
 
-      const data = await response.json();
+      const data = await parseApiResponse(response);
 
       if (!response.ok) {
         throw new Error(data.error || 'Registration failed');

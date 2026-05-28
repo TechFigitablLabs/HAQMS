@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Users, CalendarDays, Activity, Search, Sparkles, UserPlus, 
   Trash2, ClipboardList, TrendingUp, DollarSign, Award, Clock,
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [patients, setPatients] = useState([]);
   const [patientsLoading, setPatientsLoading] = useState(false);
   const [patientSearch, setPatientSearch] = useState('');
+  const [debouncedPatientSearch, setDebouncedPatientSearch] = useState('');
   const [patientGender, setPatientGender] = useState('All');
   const [patientsPagination, setPatientsPagination] = useState({ page: 1, totalPages: 1 });
   
@@ -71,13 +73,26 @@ export default function Dashboard() {
   // RECEPTIONIST FUNCTIONS
   // ==========================================
   
+  // Debounce patient search to avoid API calls on every keystroke
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedPatientSearch(patientSearch);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [patientSearch]);
+
   // Fetch Patients List
-  const fetchPatients = async (page = 1) => {
+  const fetchPatients = useCallback(async (page = 1) => {
     setPatientsLoading(true);
     try {
-      // Inefficient memory pagination called from client
-      const res = await fetch(`${API_BASE_URL}/patients?page=${page}&limit=5&search=${patientSearch}&gender=${patientGender}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: '5',
+        search: debouncedPatientSearch,
+        gender: patientGender,
+      });
+      const res = await fetch(`${API_BASE_URL}/patients?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -85,7 +100,7 @@ export default function Dashboard() {
         setPatientsPagination({
           page: data.pagination.page,
           totalPages: data.pagination.totalPages,
-          totalPatients: data.pagination.totalPatients
+          totalPatients: data.pagination.totalPatients,
         });
       }
     } catch (e) {
@@ -93,14 +108,13 @@ export default function Dashboard() {
     } finally {
       setPatientsLoading(false);
     }
-  };
+  }, [API_BASE_URL, token, debouncedPatientSearch, patientGender]);
 
-  // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
   useEffect(() => {
     if (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') {
       fetchPatients(1);
     }
-  }, [patientSearch, patientGender]);
+  }, [debouncedPatientSearch, patientGender, user.role, fetchPatients]);
 
   // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
@@ -347,17 +361,20 @@ export default function Dashboard() {
     }
   };
 
-  // Search Doctors (SQL Injection vulnerable API!)
   const searchPhysiciansAdmin = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/doctors?search=${adminSearchQuery}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+      const params = new URLSearchParams();
+      if (adminSearchQuery.trim()) {
+        params.set('search', adminSearchQuery.trim());
+      }
+      const res = await fetch(`${API_BASE_URL}/doctors?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
       if (Array.isArray(data)) {
         setDoctorsList(data);
       } else {
-        alert(`API Error: ${data.sqlMessage || data.error}`);
+        alert(`API Error: ${data.error || 'Failed to search physicians'}`);
       }
     } catch (e) {
       console.error(e);
@@ -739,9 +756,8 @@ export default function Dashboard() {
               </p>
 
               <div className="space-y-6">
-                <div className="p-4 rounded-xl border border-teal-500/25 bg-teal-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
-                  <strong>Token Generation Engine Note:</strong> Direct arrivals bypass appointments. The token engine automatically fetches the current days maximum token size and increments. 
-                  <span className="block mt-1 font-bold text-rose-500 uppercase tracking-wide">Warning: Vulnerable to check-in race conditions!</span>
+                <div className="p-4 rounded-xl border border-emerald-500/25 bg-emerald-500/10 text-slate-700 dark:text-slate-300 text-xs leading-5">
+                  <strong>Token generation:</strong> Direct walk-ins bypass appointments. The server assigns the next token for today inside a database transaction, with a unique constraint on physician + token number + date and automatic retry on conflict—so concurrent check-ins cannot receive duplicate numbers.
                 </div>
 
                 <div className="space-y-4 text-xs font-semibold text-slate-700 dark:text-slate-300">
@@ -894,7 +910,7 @@ export default function Dashboard() {
                       without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
                       this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
                   <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
+                    {selectedPatientHistory.medicalHistory?.toUpperCase() ?? 'No clinical background on file.'}
                   </p>
                 </div>
 
@@ -1088,7 +1104,7 @@ export default function Dashboard() {
         )}
 
         {/* ==============================================================
-            TAB: PHYSICIAN REGISTRY (ADMIN ROLE - SQL INJECTION VULNERABILITY)
+            TAB: PHYSICIAN REGISTRY (ADMIN ROLE)
             ============================================================== */}
         {activeTab === 'physicians' && (
           <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md space-y-6">
@@ -1098,7 +1114,7 @@ export default function Dashboard() {
                 Staff Physicians Registry Lookup
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
-                Database lookup for credentials. Uses a raw SQL interpolation backend query.
+                Search the physician directory by name using a parameterized Prisma query.
               </p>
             </div>
 
@@ -1111,7 +1127,8 @@ export default function Dashboard() {
                   type="text"
                   value={adminSearchQuery}
                   onChange={(e) => setAdminSearchQuery(e.target.value)}
-                  placeholder="Enter physician name search criteria (raw syntax supported)..."
+                  onKeyDown={(e) => e.key === 'Enter' && searchPhysiciansAdmin()}
+                  placeholder="Search by physician name..."
                   className="block w-full pl-9 pr-3 py-2 border border-slate-300 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 rounded-lg text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent text-sm"
                 />
               </div>
@@ -1120,18 +1137,17 @@ export default function Dashboard() {
                 onClick={searchPhysiciansAdmin}
                 className="glow-btn px-5 py-2 bg-slate-900 text-white dark:bg-teal-500 dark:text-slate-950 font-bold text-xs rounded-lg hover:bg-slate-800 dark:hover:bg-teal-400 transition-colors"
               >
-                Execute SQL Query
+                Search Physicians
               </button>
             </div>
 
-            <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
+            <div className="p-3 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-xs rounded-lg border border-emerald-500/20 font-semibold leading-5 flex gap-3">
+              <CheckCircle className="h-5 w-5 shrink-0" />
               <div>
-                <strong>SQL Vulnerability alert:</strong> This search executes raw interpolation: 
-                <code className="block bg-black/10 dark:bg-black/30 p-1.5 rounded mt-1 font-mono">
-                  SELECT * FROM &quot;Doctor&quot; WHERE name ILIKE &apos;%&#123;query&#125;%&apos;
+                <strong>Secured:</strong> Search uses Prisma parameterized filters — user input is never concatenated into SQL.
+                <code className="block bg-black/10 dark:bg-black/30 p-1.5 rounded mt-1 font-mono text-slate-600 dark:text-slate-300">
+                  prisma.doctor.findMany(&#123; where: &#123; name: &#123; contains: search, mode: &apos;insensitive&apos; &#125; &#125; &#125;)
                 </code>
-                Can be audited by inputting standard SQL injection strings to leak full user login lists.
               </div>
             </div>
 

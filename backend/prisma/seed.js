@@ -6,6 +6,12 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding HAQMS database...');
 
+  // Clear transactional data so re-seeding is idempotent (unique constraints on appointments/queue)
+  await prisma.queueToken.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.patient.deleteMany();
+  await prisma.doctor.deleteMany({ where: { userId: null } });
+
   // ─── Users ────────────────────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash('password123', 10);
 
@@ -368,10 +374,14 @@ async function main() {
   console.log(`✅ ${appointments.length} appointments seeded`);
 
   // ─── Queue Tokens ──────────────────────────────────────────────────────────
+  const queueDate = new Date(today);
+  queueDate.setHours(0, 0, 0, 0);
+
   await Promise.all([
     prisma.queueToken.create({
       data: {
         tokenNumber: 1,
+        queueDate,
         patientId: patients[0].id,
         doctorId: doctor1.id,
         appointmentId: appointments[0].id,
@@ -381,6 +391,7 @@ async function main() {
     prisma.queueToken.create({
       data: {
         tokenNumber: 2,
+        queueDate,
         patientId: patients[1].id,
         doctorId: doctor1.id,
         appointmentId: appointments[1].id,
@@ -390,6 +401,7 @@ async function main() {
     prisma.queueToken.create({
       data: {
         tokenNumber: 3,
+        queueDate,
         patientId: patients[6].id,
         doctorId: doctor1.id,
         status: 'WAITING',
@@ -398,6 +410,7 @@ async function main() {
     prisma.queueToken.create({
       data: {
         tokenNumber: 1,
+        queueDate,
         patientId: patients[2].id,
         doctorId: doctor2.id,
         appointmentId: appointments[2].id,
@@ -407,6 +420,7 @@ async function main() {
     prisma.queueToken.create({
       data: {
         tokenNumber: 2,
+        queueDate,
         patientId: patients[8].id,
         doctorId: doctor2.id,
         status: 'WAITING',
@@ -415,6 +429,7 @@ async function main() {
     prisma.queueToken.create({
       data: {
         tokenNumber: 1,
+        queueDate,
         patientId: patients[7].id,
         doctorId: doctor3.id,
         appointmentId: appointments[5].id,
