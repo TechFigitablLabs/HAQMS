@@ -233,6 +233,273 @@ body {
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
 }
 
+.dashboard-readable {
+  color: #0f172a;
+}
+
+.dashboard-readable .glass,
+.dashboard-readable .surface-card {
+  background: rgba(255, 255, 255, 0.94);
+  border-color: rgba(15, 23, 42, 0.14);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.1);
+}
+
+.dashboard-readable h1,
+.dashboard-readable h2,
+.dashboard-readable h3,
+.dashboard-readable h4,
+.dashboard-readable th,
+.dashboard-readable label {
+  color: #0f172a;
+}
+
+.dashboard-readable p,
+.dashboard-readable td,
+.dashboard-readable span,
+.dashboard-readable select,
+.dashboard-readable input,
+.dashboard-readable textarea {
+  color: #1e293b;
+}
+
+.dashboard-readable .text-slate-400,
+.dashboard-readable .text-slate-500,
+.dashboard-readable .text-slate-600 {
+  color: #334155;
+}
+
+.dashboard-readable .text-xxs {
+  color: #475569;
+}
+
+.dashboard-readable input,
+.dashboard-readable select,
+.dashboard-readable textarea {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.dashboard-readable input::placeholder,
+.dashboard-readable textarea::placeholder {
+  color: #64748b;
+}
+
+.dashboard-readable table {
+  color: #1e293b;
+}
+
+.dashboard-readable tbody tr:hover {
+  background: rgba(14, 116, 144, 0.06);
+}
+
+.dashboard-readable .physician-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.dashboard-readable .physician-card-badge {
+  border: 1px solid #99f6e4;
+  background: #ecfeff;
+  color: #115e59;
+}
+
+.dashboard-readable .physician-card-name {
+  color: #0f172a;
+}
+
+.dashboard-readable .physician-card-specialty {
+  color: #0e7490;
+}
+
+.dashboard-readable .physician-card-icon {
+  background: #f1f5f9;
+  color: #334155;
+}
+
+.dashboard-readable .physician-card-meta {
+  border-color: #e2e8f0;
+}
+
+.dashboard-readable .physician-card-stat {
+  background: #f8fafc;
+}
+
+.dashboard-readable .physician-card-stat span {
+  color: #475569;
+}
+
+.dashboard-readable .physician-card-stat strong {
+  color: #0f172a;
+}
+
+.dashboard-readable .physician-card-fee {
+  background: #ecfeff;
+}
+
+.dashboard-readable .physician-card-fee span {
+  color: #0e7490;
+}
+
+.dashboard-readable .physician-card-fee strong {
+  color: #155e75;
+}
+
+.dashboard-readable .audit-report {
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.dashboard-readable .audit-kpi {
+  border: 1px solid #dbeafe;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+}
+
+.dashboard-readable .audit-kpi span {
+  color: #475569;
+}
+
+.dashboard-readable .audit-kpi h4 {
+  color: #0f172a;
+}
+
+.dashboard-readable .audit-kpi-cyan {
+  border-left: 5px solid #0891b2;
+  background: linear-gradient(135deg, #ecfeff 0%, #ffffff 72%);
+}
+
+.dashboard-readable .audit-kpi-teal {
+  border-left: 5px solid #0f766e;
+  background: linear-gradient(135deg, #f0fdfa 0%, #ffffff 72%);
+}
+
+.dashboard-readable .audit-kpi-rose {
+  border-left: 5px solid #be123c;
+  background: linear-gradient(135deg, #fff1f2 0%, #ffffff 72%);
+}
+
+.dashboard-readable .audit-table-wrap {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.875rem;
+  background: #ffffff;
+}
+
+.dashboard-readable .audit-table thead {
+  background: #f1f5f9;
+}
+
+.dashboard-readable .audit-table th {
+  color: #0f172a;
+  border-bottom: 1px solid #cbd5e1;
+}
+
+.dashboard-readable .audit-table td {
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dashboard-readable .audit-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dashboard-readable .audit-table tbody tr:hover {
+  background: #ecfeff;
+}
+
+.dashboard-readable .audit-specialty {
+  color: #0e7490;
+}
+
+.dashboard-readable .audit-revenue {
+  color: #0f766e;
+}
+
+.queue-readable .surface-card {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.09);
+}
+
+.queue-readable .hero-shell {
+  background:
+    linear-gradient(120deg, rgba(236, 254, 255, 0.96), rgba(255, 241, 242, 0.92)),
+    repeating-linear-gradient(90deg, rgba(15, 23, 42, 0.06) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.05) 0 1px, transparent 1px 24px);
+}
+
+.queue-readable .queue-card-header {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.queue-readable .queue-card-header h3 {
+  color: #0f172a;
+}
+
+.queue-readable .queue-card-header p {
+  color: #0e7490;
+}
+
+.queue-readable .queue-section-label {
+  color: #475569;
+}
+
+.queue-readable .queue-idle-card {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+}
+
+.queue-readable .queue-idle-card svg {
+  color: #64748b;
+}
+
+.queue-readable .queue-token-pill {
+  background: #172554;
+  border: 1px solid #1e3a8a;
+  color: #ffffff;
+}
+
+.queue-readable .text-slate-400,
+.queue-readable .text-slate-500,
+.queue-readable .text-slate-600 {
+  color: #475569;
+}
+
+.dark .dashboard-readable {
+  color: #f8fafc;
+}
+
+.dark .dashboard-readable .glass,
+.dark .dashboard-readable .surface-card {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.dark .dashboard-readable h1,
+.dark .dashboard-readable h2,
+.dark .dashboard-readable h3,
+.dark .dashboard-readable h4,
+.dark .dashboard-readable th,
+.dark .dashboard-readable label {
+  color: #f8fafc;
+}
+
+.dark .dashboard-readable p,
+.dark .dashboard-readable td,
+.dark .dashboard-readable span,
+.dark .dashboard-readable select,
+.dark .dashboard-readable input,
+.dark .dashboard-readable textarea,
+.dark .dashboard-readable .text-slate-400,
+.dark .dashboard-readable .text-slate-500,
+.dark .dashboard-readable .text-slate-600,
+.dark .dashboard-readable .text-xxs {
+  color: #dbeafe;
+}
+
 .nav-link {
   display: inline-flex;
   align-items: center;

@@ -13,8 +13,8 @@ export default function QueueMonitor() {
   
   const [refreshCount, setRefreshCount] = useState(0);
 
-  const API_BASE_URL = 'http://localhost:5000/api';
-  const SOCKET_URL = 'http://localhost:5000';
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+  const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || API_BASE_URL.replace(/\/api\/?$/, '');
 
   const fetchQueueData = async () => {
     try {
@@ -110,7 +110,7 @@ export default function QueueMonitor() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
       
-      <main className="app-shell flex-1 w-full p-6 sm:p-8">
+      <main className="app-shell queue-readable flex-1 w-full p-6 sm:p-8">
         {/* Header Dashboard Banner */}
         <div className="hero-shell mb-8 flex flex-col gap-6 rounded-3xl p-6 shadow-lg sm:p-8 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3">
@@ -118,10 +118,10 @@ export default function QueueMonitor() {
               <Monitor className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="flex items-center gap-2 text-2xl font-black text-slate-900 dark:text-slate-100">
+              <h1 className="flex items-center gap-2 text-2xl font-black text-slate-950">
                 Live Public Monitor Board
               </h1>
-              <p className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-400">
+              <p className="mt-1 text-sm font-bold text-slate-700">
                 Real-time physician calling boards. Auto-syncs every 3 seconds.
               </p>
             </div>
@@ -177,9 +177,9 @@ export default function QueueMonitor() {
                 className="surface-card flex h-full flex-col overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-cyan-500/30 hover:shadow-cyan-500/10"
               >
                 {/* Doctor Title Header */}
-                <div className="border-b border-slate-200 bg-slate-50/80 p-5 dark:border-slate-800">
-                  <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">{docInfo.doctorName}</h3>
-                  <p className="mt-0.5 text-xs font-bold uppercase text-cyan-700 dark:text-cyan-400">
+                <div className="queue-card-header border-b p-5">
+                  <h3 className="font-extrabold text-lg">{docInfo.doctorName}</h3>
+                  <p className="mt-0.5 text-xs font-black uppercase">
                     {docInfo.specialization}
                   </p>
                 </div>
@@ -188,7 +188,7 @@ export default function QueueMonitor() {
                 <div className="p-6 flex-1 flex flex-col justify-between">
                   {/* Current Active Token Box */}
                   <div className="mb-6">
-                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2.5">
+                    <h4 className="queue-section-label text-xs font-black uppercase tracking-widest mb-2.5">
                       Now Calling
                     </h4>
                     {docInfo.calling ? (
@@ -196,17 +196,17 @@ export default function QueueMonitor() {
                         <span className="block text-5xl font-black text-cyan-800 dark:text-cyan-300">
                           #{docInfo.calling.tokenNumber}
                         </span>
-                        <span className="mt-2 block text-xs font-bold uppercase text-slate-500">
+                        <span className="mt-2 block text-xs font-black uppercase text-slate-700">
                           Patient: {docInfo.calling.patient.name}
                         </span>
                       </div>
                     ) : (
-                      <div className="bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800/80 p-6 rounded-2xl text-center shadow-inner">
-                        <Clock3 className="mx-auto mb-2 h-6 w-6 text-slate-400" />
-                        <span className="block text-2xl font-extrabold text-slate-400 dark:text-slate-500">
+                      <div className="queue-idle-card p-6 rounded-2xl text-center shadow-inner">
+                        <Clock3 className="mx-auto mb-2 h-6 w-6" />
+                        <span className="block text-2xl font-extrabold">
                           Idle
                         </span>
-                        <span className="block text-xs font-medium text-slate-400 mt-2">
+                        <span className="block text-xs font-bold mt-2">
                           No active patients being called
                         </span>
                       </div>
@@ -215,7 +215,7 @@ export default function QueueMonitor() {
 
                   {/* Upcoming Tokens list */}
                   <div>
-                    <h4 className="mb-2 flex items-center gap-1.5 text-xs font-bold uppercase text-slate-400">
+                    <h4 className="queue-section-label mb-2 flex items-center gap-1.5 text-xs font-black uppercase">
                       <Users className="h-3.5 w-3.5" />
                       Queue List
                     </h4>
@@ -224,7 +224,7 @@ export default function QueueMonitor() {
                         {docInfo.waiting.map((token) => (
                           <div
                             key={token.id}
-                            className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300"
+                            className="queue-token-pill px-3 py-1.5 rounded-lg text-xs font-black"
                             title={`Patient: ${token.patient.name}`}
                           >
                             #{token.tokenNumber}
@@ -232,7 +232,7 @@ export default function QueueMonitor() {
                         ))}
                       </div>
                     ) : (
-                      <span className="text-xs text-slate-400 dark:text-slate-500 italic block">
+                      <span className="text-xs text-slate-600 font-semibold italic block">
                         No upcoming patients in queue
                       </span>
                     )}

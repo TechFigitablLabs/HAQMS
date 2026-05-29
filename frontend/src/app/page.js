@@ -82,14 +82,14 @@ export default function Home() {
                 <span className="truncate">Live queue and appointment control</span>
               </div>
 
-              <h1 className="font-display hero-title text-4xl font-black text-slate-900 min-[380px]:text-5xl sm:text-6xl xl:text-7xl">
+              <h1 className="font-display hero-title text-3xl font-black text-slate-900 min-[380px]:text-4xl sm:text-5xl xl:text-6xl">
                 HAQMS
               </h1>
-              <p className="mt-3 text-base font-semibold leading-6 text-rose-700 sm:text-xl sm:leading-8 xl:text-2xl">
+              <p className="mt-3 text-base font-semibold leading-6 text-rose-700 sm:text-lg sm:leading-7 xl:text-xl">
                 Hospital Appointment, Queue, and Care-Flow Command Center
               </p>
 
-              <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-700 sm:mt-6 sm:text-lg sm:leading-8">
+              <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-700 sm:mt-6 sm:text-base sm:leading-8">
                 A realtime hospital operations hub for scheduling, tokenized queues, and clinician handoffs.
                 Built for speed, transparency, and front-desk clarity.
               </p>
@@ -100,8 +100,8 @@ export default function Home() {
                     <CheckCircle className="h-5 w-5 sm:h-6 sm:w-6" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-900 sm:text-base">Lightning Fast Performance</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 sm:text-sm">
+                    <p className="text-base font-black text-slate-900 sm:text-lg">Lightning Fast Performance</p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-slate-600 sm:text-base">
                       Real-time updates with sub-second response times
                     </p>
                   </div>
@@ -111,8 +111,8 @@ export default function Home() {
                     <ShieldAlert className="h-5 w-5 sm:h-6 sm:w-6" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-black text-slate-900 sm:text-base">Healthcare Compliant</p>
-                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-600 sm:text-sm">
+                    <p className="text-base font-black text-slate-900 sm:text-lg">Healthcare Compliant</p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-slate-600 sm:text-base">
                       HIPAA-ready security for sensitive patient data
                     </p>
                   </div>
@@ -130,7 +130,7 @@ export default function Home() {
                 </Link>
               </div>
 
-              <p className="mt-3 text-xs font-bold uppercase text-slate-500">
+              <p className="mt-3 text-sm font-bold uppercase text-slate-500">
                 Public monitor requires no login
               </p>
             </div>
@@ -151,8 +151,8 @@ export default function Home() {
                 ))}
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/35 via-transparent to-white/10" />
                 <div className="absolute bottom-5 left-5 right-5 rounded-2xl border border-white/30 bg-white/82 p-4 text-left shadow-lg backdrop-blur-md">
-                  <p className="text-xs font-black uppercase text-cyan-800">Care in motion</p>
-                  <p className="mt-1 text-sm font-semibold text-slate-700">
+                  <p className="text-sm font-black uppercase text-cyan-800">Care in motion</p>
+                  <p className="mt-1 text-base font-semibold text-slate-700">
                     Coordinated doctors, faster queues, and calmer patient journeys.
                   </p>
                   <div className="mt-3 flex gap-1.5">
@@ -177,14 +177,14 @@ export default function Home() {
                 <div className="w-fit rounded-xl bg-cyan-500/15 p-3 text-cyan-800 transition-colors duration-300 group-hover:bg-cyan-700 group-hover:text-white sm:p-4">
                   <Users className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h2 className="mt-5 flex items-center gap-2 text-xl font-bold text-slate-900 sm:mt-6 sm:text-3xl">
+                <h2 className="mt-5 flex items-center gap-2 text-2xl font-bold text-slate-900 sm:mt-6 sm:text-4xl">
                   Staff Portal
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-lg">
+                <p className="mt-3 text-base leading-7 text-slate-600 sm:text-xl">
                   Access specialized dashboards for administrators, doctors, and receptionists.
                 </p>
-                <ul className="mt-6 space-y-3 text-sm font-semibold text-slate-600 sm:text-base">
+                <ul className="mt-6 space-y-3 text-base font-semibold text-slate-600 sm:text-lg">
                   <li>✓ Patient intake, appointment booking, and queue tokening</li>
                   <li>✓ Doctor worklist updates and status changes</li>
                   <li>✓ Administrative review and physician registry access</li>
@@ -197,14 +197,14 @@ export default function Home() {
                 <div className="w-fit rounded-xl bg-rose-500/15 p-3 text-rose-700 transition-colors duration-300 group-hover:bg-rose-600 group-hover:text-white sm:p-4">
                   <MonitorPlay className="h-6 w-6 sm:h-8 sm:w-8" />
                 </div>
-                <h2 className="mt-5 flex items-center gap-2 text-xl font-bold text-slate-900 sm:mt-6 sm:text-3xl">
+                <h2 className="mt-5 flex items-center gap-2 text-2xl font-bold text-slate-900 sm:mt-6 sm:text-4xl">
                   Live Public Monitor
                   <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
                 </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-600 sm:text-lg">
+                <p className="mt-3 text-base leading-7 text-slate-600 sm:text-xl">
                   Track active check-ins and calling tokens by physician with automatic refresh.
                 </p>
-                <ul className="mt-6 space-y-3 text-sm font-semibold text-slate-600 sm:text-base">
+                <ul className="mt-6 space-y-3 text-base font-semibold text-slate-600 sm:text-lg">
                   <li>✓ Now-calling token display for waiting areas</li>
                   <li>✓ Live updates every few seconds</li>
                   <li>✓ Easy public access without login</li>
@@ -217,7 +217,7 @@ export default function Home() {
             <h2 className="text-center text-2xl font-black text-slate-900 sm:text-4xl lg:text-5xl">
               Healthcare Flow in Action
             </h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-sm leading-7 text-slate-600 sm:text-xl">
+            <p className="mx-auto mt-4 max-w-2xl text-center text-base leading-7 text-slate-600 sm:text-2xl">
               See how HAQMS transforms patient care delivery
             </p>
 
@@ -226,8 +226,8 @@ export default function Home() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-cyan-100 sm:h-24 sm:w-24">
                   <Users2 className="h-8 w-8 text-cyan-700 sm:h-12 sm:w-12" />
                 </div>
-                <h3 className="text-center text-lg font-black text-slate-900 sm:text-xl">Patient Check-in</h3>
-                <p className="text-center text-sm text-slate-600">
+                <h3 className="text-center text-xl font-black text-slate-900 sm:text-2xl">Patient Check-in</h3>
+                <p className="text-center text-base text-slate-600">
                   Reception staff quickly registers patients and assigns queue tokens
                 </p>
               </div>
@@ -236,8 +236,8 @@ export default function Home() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 sm:h-24 sm:w-24">
                   <ClipboardList className="h-8 w-8 text-rose-700 sm:h-12 sm:w-12" />
                 </div>
-                <h3 className="text-center text-lg font-black text-slate-900 sm:text-xl">Appointment Booking</h3>
-                <p className="text-center text-sm text-slate-600">
+                <h3 className="text-center text-xl font-black text-slate-900 sm:text-2xl">Appointment Booking</h3>
+                <p className="text-center text-base text-slate-600">
                   Schedule consultations with doctors based on availability
                 </p>
               </div>
@@ -246,8 +246,8 @@ export default function Home() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 sm:h-24 sm:w-24">
                   <Stethoscope className="h-8 w-8 text-amber-700 sm:h-12 sm:w-12" />
                 </div>
-                <h3 className="text-center text-lg font-black text-slate-900 sm:text-xl">Doctor Consultation</h3>
-                <p className="text-center text-sm text-slate-600">
+                <h3 className="text-center text-xl font-black text-slate-900 sm:text-2xl">Doctor Consultation</h3>
+                <p className="text-center text-base text-slate-600">
                   Doctors manage their worklist and provide patient care
                 </p>
               </div>
@@ -256,8 +256,8 @@ export default function Home() {
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 sm:h-24 sm:w-24">
                   <CheckCircle className="h-8 w-8 text-emerald-700 sm:h-12 sm:w-12" />
                 </div>
-                <h3 className="text-center text-lg font-black text-slate-900 sm:text-xl">Completion & Discharge</h3>
-                <p className="text-center text-sm text-slate-600">
+                <h3 className="text-center text-xl font-black text-slate-900 sm:text-2xl">Completion & Discharge</h3>
+                <p className="text-center text-base text-slate-600">
                   Mark consultations complete and manage patient follow-ups
                 </p>
               </div>
@@ -271,7 +271,7 @@ export default function Home() {
             <h2 className="text-2xl font-black leading-tight text-white sm:text-4xl md:text-5xl">
               Ready to streamline your hospital operations?
             </h2>
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-cyan-50 sm:text-xl">
+            <p className="mt-4 max-w-2xl text-base leading-7 text-cyan-50 sm:text-2xl">
               Join dozens of hospitals using HAQMS to reduce wait times, improve staff coordination, and keep patients informed in real time.
             </p>
             <div className="mt-8 flex w-full max-w-md flex-col gap-4 sm:w-auto sm:max-w-none sm:flex-row">
@@ -336,13 +336,13 @@ export default function Home() {
                 </span>
                 <span className="font-black">HAQMS</span>
               </div>
-              <p className="mt-3 text-sm leading-6">
+              <p className="mt-3 text-base leading-6">
                 Hospital Appointment & Queue Management System — transforming patient flow and staff coordination.
               </p>
             </div>
             <div>
               <h4 className="font-bold text-white">Quick Links</h4>
-              <ul className="mt-3 space-y-2 text-sm">
+              <ul className="mt-3 space-y-2 text-base">
                 <li>
                   <Link href="/login" className="hover:text-cyan-400 transition-colors">
                     Staff Portal
@@ -357,7 +357,7 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-bold text-white">For Healthcare Admins</h4>
-              <ul className="mt-3 space-y-2 text-sm">
+              <ul className="mt-3 space-y-2 text-base">
                 <li>Patient intake workflows</li>
                 <li>Appointment scheduling</li>
                 <li>Real-time queue display</li>
@@ -365,7 +365,7 @@ export default function Home() {
             </div>
             <div>
               <h4 className="font-bold text-white">Build with Purpose</h4>
-              <p className="mt-3 text-sm leading-6">
+              <p className="mt-3 text-base leading-6">
                 HAQMS was created as an assessment framework to identify and evaluate software engineering skills through a deliberately flawed but fully functional reference application.
               </p>
             </div>

@@ -400,6 +400,14 @@ This project intentionally demonstrates full-stack understanding:
 - WebSocket-based live updates.
 - GitHub-ready submission with generated files excluded.
 
+## Final Documentation
+
+For the assignment review, see:
+
+- [Final Assignment Documentation](DOCUMENTATION.md)
+- [Video Walkthrough Script](VIDEO_WALKTHROUGH.md)
+- [Deployment Guide](DEPLOYMENT.md)
+
 ## GitHub Submission Notes
 
 Do not push:

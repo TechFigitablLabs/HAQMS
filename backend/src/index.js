@@ -18,10 +18,19 @@ const app = express();
 const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
 const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const allowedOrigins = CLIENT_URL.split(',').map((origin) => origin.trim()).filter(Boolean);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+};
 
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_URL,
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH'],
   },
 });
@@ -41,8 +50,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// Enable CORS for all origins (weak/broad CORS config)
-app.use(cors({ origin: CLIENT_URL }));
+app.use(cors(corsOptions));
 
 // Body parser
 app.use(express.json());

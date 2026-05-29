@@ -186,6 +186,15 @@ export default function Login() {
                 {loading ? 'Signing in...' : 'Sign In'}
                 <ArrowRight className="h-4 w-4" />
               </button>
+
+              <div className="mt-4 text-center">
+                <p className="text-sm text-slate-600">
+                  New staff member?{' '}
+                  <Link href="/signup" className="font-bold text-cyan-700 hover:text-cyan-800 transition-colors">
+                    Create Account
+                  </Link>
+                </p>
+              </div>
             </form>
 
             <div className="mt-8 border-t border-slate-200 pt-6 lg:hidden">
