@@ -1,23 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import Navbar from '@/components/common/Navbar';
-import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from "react";
+import Navbar from "@/components/common/Navbar";
+import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function QueueMonitor() {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   // Duplicated config state just to add minor code smell
-  //const [refreshCount, setRefreshCount] = useState(0);
+  const [refreshCount, setRefreshCount] = useState(0);
 
   // HARDCODED API BASE URL: Duplicated from AuthContext (code duplication smell)
-  const API_BASE_URL = 'http://localhost:5000/api';
+  const API_BASE_URL = "http://localhost:5000/api";
 
   // const fetchQueueData = async () => {
   //   try {
-  //     // Insecure: Fetches queue without checking credentials (it's a public dashboard, which is fine, 
+  //     // Insecure: Fetches queue without checking credentials (it's a public dashboard, which is fine,
   //     // but it uses the hardcoded API domain)
   //     const res = await fetch(`${API_BASE_URL}/queue`);
   //     if (!res.ok) {
@@ -34,73 +34,84 @@ export default function QueueMonitor() {
   //   }
   // };   not being used anymore
 
- 
-useEffect(() => {
-  let isMounted = true;
-// initial fetch
-  const fetchQueueData = async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/queue`);
-      if (!res.ok) {
-        throw new Error('Failed to retrieve active token queue.');
-      }
-      const data = await res.json();
+  useEffect(() => {
+    let isMounted = true;
+    // initial fetch
+    const fetchQueueData = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        console.log("TOKEN:", token);
+        const res = await fetch(`${API_BASE_URL}/queue`,{
+          headers: {
+            Authorization: token ? `Bearer ${token}` : "", //fixed auth
+            "Content-Type": "application/json",
+          },
+        });
+        if (!res.ok) {
+          console.error("API Error Status:", res.status);
+          const text = await res.text();
+          console.error("API Error Body:", text);
 
-      if (isMounted) {
-        setTokens(data);
-        setError('');
-      }
-    } catch (err) {
-      if (isMounted) {
-        console.error('Queue poll fetch error:', err);
-        setError(err.message);
-      }
-    } finally {
-      if (isMounted) {
-        setLoading(false);
-      }
-    }
-  };
+          throw new Error(`API request failed with status ${res.status}`);
+        }
+        const data = await res.json();
 
-  fetchQueueData();
+        if (isMounted) {
+          setTokens(data);
+          setError("");
+          setRefreshCount((prev) => prev + 1);
+        }
+      } catch (err) {
+        if (isMounted) {
+          console.error("Queue poll fetch error:", err);
+          setError(err.message);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  const intervalId = setInterval(fetchQueueData, 3000);
+    fetchQueueData();
 
-  return () => {
-    isMounted = false;
-    clearInterval(intervalId);
-  };
-}, []);  //cleanup function added
- // Note that refreshCount dependency is missing too, causing stale closure on log!
+    const intervalId = setInterval(fetchQueueData, 3000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, []); //cleanup function added
+  // Note that refreshCount dependency is missing too, causing stale closure on log!
 
   // Group tokens by doctor
-const groupedTokens = useMemo(() => {
-  return tokens.reduce((groups, token) => {
-    const docId = token.doctorId;
+  const groupedTokens = useMemo(() => {
+    return tokens.reduce((groups, token) => {
+      const docId = token.doctorId;
 
-    if (!groups[docId]) {
-      groups[docId] = {
-        doctorName: token.doctor.name,
-        specialization: token.doctor.specialization,
-        calling: null,
-        waiting: [],
-      };
-    }
+      if (!groups[docId]) {
+        groups[docId] = {
+          doctorName: token.doctor.name,
+          specialization: token.doctor.specialization,
+          calling: null,
+          waiting: [],
+        };
+      }
 
-    if (token.status === 'CALLING') {
-      groups[docId].calling = token;
-    } else if (token.status === 'WAITING') {
-      groups[docId].waiting.push(token);
-    }
+      if (token.status === "CALLING") {
+        groups[docId].calling = token;
+      } else if (token.status === "WAITING") {
+        groups[docId].waiting.push(token);
+      }
 
-    return groups;
-  }, {});
-}, [tokens]);
+      return groups;
+    }, {});
+  }, [tokens]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
         {/* Header Dashboard Banner */}
         <div className="glass p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -117,7 +128,7 @@ const groupedTokens = useMemo(() => {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-xs font-bold uppercase tracking-wide border border-teal-500/20">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -134,7 +145,8 @@ const groupedTokens = useMemo(() => {
           <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center gap-3 text-sm">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <div>
-              <strong>Sync Error:</strong> {error} - Please verify that the backend API server is online.
+              <strong>Sync Error:</strong> {error} - Please verify that the
+              backend API server is online.
             </div>
           </div>
         )}
@@ -146,14 +158,20 @@ const groupedTokens = useMemo(() => {
               <div></div>
               <div></div>
             </div>
-            <p className="mt-4 text-sm font-semibold text-slate-400">Loading active token queues...</p>
+            <p className="mt-4 text-sm font-semibold text-slate-400">
+              Loading active token queues...
+            </p>
           </div>
         ) : Object.keys(groupedTokens).length === 0 ? (
           <div className="glass p-12 text-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
             <Bell className="h-12 w-12 text-slate-400 mx-auto animate-bounce" />
-            <h3 className="mt-4 text-lg font-bold text-slate-800 dark:text-slate-100">No Active Tokens</h3>
+            <h3 className="mt-4 text-lg font-bold text-slate-800 dark:text-slate-100">
+              No Active Tokens
+            </h3>
             <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm max-w-md mx-auto">
-              There are currently no patient check-ins registered for today. Use the receptionist portal in the Staff Dashboard to check-in patients.
+              There are currently no patient check-ins registered for today. Use
+              the receptionist portal in the Staff Dashboard to check-in
+              patients.
             </p>
           </div>
         ) : (
@@ -166,7 +184,9 @@ const groupedTokens = useMemo(() => {
               >
                 {/* Doctor Title Header */}
                 <div className="bg-slate-500/5 p-5 border-b border-slate-200 dark:border-slate-800">
-                  <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">{docInfo.doctorName}</h3>
+                  <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">
+                    {docInfo.doctorName}
+                  </h3>
                   <p className="text-xs text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider mt-0.5">
                     {docInfo.specialization}
                   </p>

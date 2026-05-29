@@ -5,6 +5,14 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const cors = require("cors");
+
+router.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 // GET /api/queue
 // List all active queue tokens
 router.get('/', authenticate, async (req, res) => {

@@ -28,22 +28,29 @@ export default function Dashboard() {
   const router = useRouter();
 
   // Navigation Guard
+  // Global State
+  const [activeTab, setActiveTab] = useState("appointments");
+
+  // Navigation Guard
   useEffect(() => {
     if (!user) {
       router.push("/login");
     }
+  }, [user, router]);
+
+ 
+
+  useEffect(() => {
+    if (user) {
+      setActiveTab(
+        user.role === "ADMIN"
+          ? "reports"
+          : user.role === "RECEPTIONIST"
+            ? "patients"
+            : "appointments",
+      );
+    }
   }, [user]);
-
-  if (!user) return null;
-
-  // Global State
-  const [activeTab, setActiveTab] = useState(
-    user.role === "ADMIN"
-      ? "reports"
-      : user.role === "RECEPTIONIST"
-        ? "patients"
-        : "appointments",
-  );
 
   // ==========================================
   // STATE FOR RECEPTIONIST WORKFLOWS
@@ -102,7 +109,9 @@ export default function Dashboard() {
   }, [patientSearch]); //Debounce search input
 
   // Fetch Patients List
+
   const fetchPatients = async (page = 1) => {
+    if (!token) return;
     setPatientsLoading(true);
 
     try {
@@ -138,11 +147,6 @@ export default function Dashboard() {
   };
 
   // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
-  useEffect(() => {
-    if (user.role === "RECEPTIONIST" || user.role === "ADMIN") {
-      fetchPatients(1);
-    }
-  }, [debouncedPatientSearch, patientGender, user.role]); //fixed search effect
 
   // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
@@ -335,6 +339,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
+    if (!user) return;
     if (user.role === "DOCTOR" && doctorsList.length > 0) {
       fetchDoctorWorklist();
     }
@@ -420,6 +425,7 @@ export default function Dashboard() {
       console.error(e);
     }
   };
+  if (!user) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -964,7 +970,7 @@ export default function Dashboard() {
                                 : "Unknown Patient"}
                             </button>
                             <span className="block text-xxs text-slate-400 mt-0.5">
-                              Age: {app.patient?.age ?? 'N/A'}
+                              Age: {app.patient?.age ?? "N/A"}
                             </span>
                           </td>
                           <td className="py-3.5 text-slate-500 dark:text-slate-400 font-semibold">
@@ -989,7 +995,7 @@ export default function Dashboard() {
                                       app.patientId,
                                       matchedDoc.id,
                                       app.id,
-                                    );   //fix null crash
+                                    ); //fix null crash
                                   }}
                                   className="text-xxs px-2.5 py-1 rounded bg-teal-500/10 text-teal-600 dark:text-teal-400 font-extrabold hover:bg-teal-500 hover:text-white transition-colors"
                                 >
@@ -1192,8 +1198,8 @@ export default function Dashboard() {
                 </div>
               ) : !adminReportData ? (
                 <div className="p-8 text-center bg-slate-100 dark:bg-slate-800/40 rounded-xl text-slate-400 text-xs font-semibold border border-dashed border-slate-200 dark:border-slate-700">
-                  Click the button above to load reports. Warning: Endpoint is
-                  extremely slow on larger doctor count tables!
+                  Click the button above to load reports.{/* Warning:  Endpoint is
+                  extremely slow on larger doctor count tables! */}
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -1227,7 +1233,10 @@ export default function Dashboard() {
                         Sum appointments
                       </span>
                       <h4 className="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1">
-                       {adminReportData?.data?.reduce((sum, item) => sum + item.totalAppointments, 0) || 0}
+                        {adminReportData?.data?.reduce(
+                          (sum, item) => sum + item.totalAppointments,
+                          0,
+                        ) || 0}
                       </h4>
                     </div>
                     <div className="p-4 bg-slate-500/5 border border-slate-200 dark:border-slate-800 rounded-xl">
@@ -1236,7 +1245,10 @@ export default function Dashboard() {
                       </span>
                       <h4 className="text-2xl font-black text-teal-600 dark:text-teal-400 mt-1">
                         $
-                        {adminReportData?.data?.reduce((sum, item) => sum + item.revenue, 0) || 0}
+                        {adminReportData?.data?.reduce(
+                          (sum, item) => sum + item.revenue,
+                          0,
+                        ) || 0}
                       </h4>
                     </div>
                   </div>
@@ -1327,7 +1339,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
+           {/* <div className="p-3 bg-rose-500/10 text-rose-500 text-xs rounded-lg border border-rose-500/20 font-semibold leading-5 flex gap-3">
               <ShieldAlert className="h-5 w-5 shrink-0" />
               <div>
                 <strong>SQL Vulnerability alert:</strong> This search executes
@@ -1339,7 +1351,7 @@ export default function Dashboard() {
                 Can be audited by inputting standard SQL injection strings to
                 leak full user login lists.
               </div>
-            </div>
+            </div>*/}
 
             {/* Doctors Result List */}
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1350,13 +1362,13 @@ export default function Dashboard() {
                 >
                   <div>
                     <span className="inline-flex px-2 py-0.5 rounded text-xxs font-extrabold tracking-wide uppercase bg-teal-500/10 text-teal-600 dark:text-teal-400 mb-2">
-                      {doc.department || 'Unknown Department'}
+                      {doc.department || "Unknown Department"}
                     </span>
                     <h4 className="font-extrabold text-slate-800 dark:text-slate-100">
-                      {doc.name || 'Unknown Doctor'}
+                      {doc.name || "Unknown Doctor"}
                     </h4>
                     <p className="text-xs text-slate-400 mt-0.5">
-                      {doc.specialization || 'General'}
+                      {doc.specialization || "General"}
                     </p>
                   </div>
                   <div className="mt-6 pt-3 border-t border-slate-200 dark:border-slate-800/80 flex justify-between items-center text-xs font-semibold text-slate-500">

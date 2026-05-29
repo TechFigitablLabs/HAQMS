@@ -54,7 +54,7 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     // SENSITIVE CONSOLE LOG: Logging plain-text passwords on login attempts!
-    console.log(`[AUTH] Login attempt for email: ${req.body.email} with password: ${req.body.password}`);
+    console.log(`[AUTH] Login attempt for email: ${req.body.email}`);
 
     const { email, password } = req.body;
 

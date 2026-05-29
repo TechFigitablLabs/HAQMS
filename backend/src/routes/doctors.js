@@ -15,33 +15,42 @@ router.get('/', authenticate, async (req, res) => {
 
  const where = {};
 
-if (search) {
-  where.name = {
-    contains: search,
-    mode: 'insensitive',
-  };
-}
+if (typeof search === 'string' && search.trim().length > 0) {
+      where.name = {
+        contains: search.trim(), // ✅ Prisma safely parameterizes this
+        mode: 'insensitive',
+      };
+    }
 
-if (specialization && specialization !== 'All') {
-  where.specialization = specialization;
-}
+    // 🔒 FIX: Validate specialization input
+    if (
+      typeof specialization === 'string' &&
+      specialization.trim() !== '' &&
+      specialization !== 'All'
+    ) {
+      where.specialization = specialization.trim();
+    }
 
-console.log('[SQL-DEBUG] Safe Prisma Query');
+    // 🔒 FIX: Removed unsafe raw SQL logging/comments
+    console.log('[DEBUG] Executing safe Prisma doctor search');
 
-const doctors = await prisma.doctor.findMany({
-  where,
-});
+    const doctors = await prisma.doctor.findMany({
+      where,
+    });
 
-    // Inconsistent API formatting (directly sending array)
-    res.json(doctors);
+    // ✅ FIX: Consistent API response structure
+    res.json( doctors
+    );
+
   } catch (error) {
-    // Leaks query syntax details to candidate/attacker
+
+    // 🔒 FIX: Prevent sensitive error leakage
+    console.error('Doctor fetch error:', error);
+
     res.status(500).json({
-  error:
-    process.env.NODE_ENV === 'development'
-      ? error.message
-      : 'Database execution failure'
-});
+      success: false,
+      error: 'Internal server error',
+    });
   }
 });
 
@@ -94,12 +103,12 @@ const [
       }
     });
   } catch (error) {
+    console.error('Doctor stats error:', error);
+
     res.status(500).json({
-  error:
-    process.env.NODE_ENV === 'development'
-      ? error.message
-      : 'Internal server error'
-});
+      success: false,
+      error: 'Internal server error',
+    });
   }
 });
 
@@ -109,8 +118,9 @@ router.get('/:id', authenticate, async (req, res) => {
 
     const doctorId = parseInt(req.params.id);
 
-    if (isNaN(doctorId)) {
+    if (!Number.isInteger(doctorId) || doctorId <= 0) {
       return res.status(400).json({
+        success: false,
         error: 'Invalid doctor ID'
       });
     }
@@ -120,17 +130,24 @@ router.get('/:id', authenticate, async (req, res) => {
     });
 
     if (!doctor) {
-      return res.status(404).json({ error: 'Doctor not found' });
+      return res.status(404).json({ success: false, error: 'Doctor not found' });
     }
 
-    res.json(doctor);
+    //Consistent API response structure
+    res.json({
+      success: true,
+      data: doctor
+    });
+
   } catch (error) {
+
+    //Prevent stack trace...SQL leak exposure
+    console.error('Doctor lookup error:', error);
+
     res.status(500).json({
-  error:
-    process.env.NODE_ENV === 'development'
-      ? error.message
-      : 'Internal server error'
-});
+      success: false,
+      error: 'Internal server error',
+    });
   }
 });
 

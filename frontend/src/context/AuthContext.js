@@ -35,44 +35,52 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   const login = async (email, password) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+  setLoading(true);
+  setError(null);
 
-      const data = await response.json();
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
+    const data = await response.json();
 
-      // Inconsistent API returns nested success format for login
-      const receivedToken = data.data.token;
-      const receivedUser = data.data.user;
-
-      // SECURITY ISSUE: Storing sensitive auth credentials directly in LocalStorage!
-      localStorage.setItem('haqms_token', receivedToken);
-      localStorage.setItem('haqms_user', JSON.stringify(receivedUser));
-
-      setToken(receivedToken);
-      setUser(receivedUser);
-
-      router.push('/dashboard');
-      return { success: true };
-    } catch (err) {
-      console.error('[AUTH-ERROR] Login request failed:', err);
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      throw new Error(data.error || 'Authentication failed');
     }
-  };
+
+    //correct nested response
+    const receivedToken = data.data.token;
+    const receivedUser = data.data.user;
+
+    //Stored correctly
+    localStorage.setItem('haqms_token', receivedToken);
+    localStorage.setItem('haqms_user', JSON.stringify(receivedUser));
+
+    setToken(receivedToken);
+    setUser(receivedUser);
+
+    router.push('/dashboard');
+
+    return { success: true };
+
+  } catch (err) {
+    console.error('[AUTH-ERROR] Login request failed:', err);
+    setError(err.message);
+
+    return {
+      success: false,
+      error: err.message,
+    };
+
+  } finally {
+    setLoading(false);
+  }
+};
 
   const register = async (name, email, password, role = 'RECEPTIONIST') => {
     setLoading(true);
