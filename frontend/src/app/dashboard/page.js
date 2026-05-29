@@ -368,7 +368,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
+      <main className="app-shell flex-1 w-full p-6 sm:p-8">
         
         {/* Navigation Tabs based on Role */}
         <div className="flex border-b border-slate-200 dark:border-slate-800 mb-8 overflow-x-auto gap-4">
@@ -376,13 +376,13 @@ export default function Dashboard() {
             <>
               <button
                 onClick={() => setActiveTab('reports')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'reports' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'reports' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 System Audit Reports
               </button>
               <button
                 onClick={() => setActiveTab('physicians')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'physicians' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'physicians' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 Physician Registry
               </button>
@@ -393,13 +393,13 @@ export default function Dashboard() {
             <>
               <button
                 onClick={() => setActiveTab('patients')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'patients' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'patients' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 Patient Registry Directory
               </button>
               <button
                 onClick={() => setActiveTab('book')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'book' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'book' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 Scheduling / Check-in Portal
               </button>
@@ -410,13 +410,13 @@ export default function Dashboard() {
             <>
               <button
                 onClick={() => setActiveTab('appointments')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'appointments' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'appointments' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 My Scheduled Bookings
               </button>
               <button
                 onClick={() => setActiveTab('queue')}
-                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'queue' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-400'}`}
+                className={`py-3.5 px-1 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === 'queue' ? 'border-teal-500 text-teal-600 dark:text-teal-400' : 'border-transparent text-slate-600 dark:text-slate-400'}`}
               >
                 Active Calling Queue
               </button>
@@ -449,7 +449,7 @@ export default function Dashboard() {
                   {/* Filters (Causes slow re-renders on keystroke) */}
                   <div className="flex gap-4 mb-6">
                     <div className="relative flex-1 rounded-lg shadow-sm">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
                         <Search className="h-4 w-4" />
                       </div>
                       <input
@@ -475,14 +475,14 @@ export default function Dashboard() {
 
                   {/* Table listing */}
                   {patientsLoading ? (
-                    <p className="text-center py-6 text-slate-400 animate-pulse text-sm">Synchronizing table data...</p>
+                    <p className="text-center py-6 text-slate-600 animate-pulse text-sm">Synchronizing table data...</p>
                   ) : patients.length === 0 ? (
-                    <p className="text-center py-6 text-slate-400 text-sm">No registered patients match this filter.</p>
+                    <p className="text-center py-6 text-slate-600 text-sm">No registered patients match this filter.</p>
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
                         <thead>
-                          <tr className="text-slate-400 uppercase tracking-widest text-xxs font-bold border-b border-slate-200 dark:border-slate-800">
+                          <tr className="text-slate-600 uppercase tracking-widest text-xxs font-bold border-b border-slate-200 dark:border-slate-800">
                             <th className="pb-3">Name</th>
                             <th className="pb-3">Contact</th>
                             <th className="pb-3">Age/Sex</th>
@@ -494,10 +494,10 @@ export default function Dashboard() {
                             <tr key={p.id} className="hover:bg-slate-500/5 transition-colors">
                               <td className="py-3.5 font-bold text-slate-800 dark:text-slate-200">
                                 {p.name}
-                                {p.email && <span className="block text-xxs text-slate-400 font-normal mt-0.5">{p.email}</span>}
+                                {p.email && <span className="block text-xxs text-slate-600 font-normal mt-0.5">{p.email}</span>}
                               </td>
-                              <td className="py-3.5 text-slate-500 dark:text-slate-400 font-medium">{p.phoneNumber}</td>
-                              <td className="py-3.5 text-slate-500 dark:text-slate-400">
+                              <td className="py-3.5 text-slate-600 dark:text-slate-400 font-medium">{p.phoneNumber}</td>
+                              <td className="py-3.5 text-slate-600 dark:text-slate-400">
                                 {p.age} yrs / <span className="capitalize">{p.gender}</span>
                               </td>
                               <td className="py-3.5 text-right space-x-2">
@@ -526,7 +526,7 @@ export default function Dashboard() {
 
                   {/* Pagination control */}
                   <div className="flex items-center justify-between mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-                    <span className="text-xs text-slate-400 font-medium">
+                    <span className="text-xs text-slate-600 font-medium">
                       Page {patientsPagination.page} of {patientsPagination.totalPages}
                     </span>
                     <div className="flex gap-2">
@@ -679,7 +679,7 @@ export default function Dashboard() {
                       <option key={p.id} value={p.id}>{p.name} ({p.phoneNumber})</option>
                     ))}
                   </select>
-                  <span className="text-xxs text-slate-400 block mt-1">If client is missing, register them in the Directory tab first.</span>
+                  <span className="text-xxs text-slate-600 block mt-1">If client is missing, register them in the Directory tab first.</span>
                 </div>
 
                 <div>
@@ -734,7 +734,7 @@ export default function Dashboard() {
                 <Activity className="h-5 w-5 text-teal-600" />
                 Active Direct Queue Check-In
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-6 font-semibold">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mb-6 font-semibold">
                 Generate an immediate waiting token for a direct walk-in patient. Allocates active positions under selected practitioners.
               </p>
 
@@ -803,7 +803,7 @@ export default function Dashboard() {
               </h3>
 
               {doctorAppointments.length === 0 ? (
-                <p className="text-center py-6 text-slate-400 text-sm">No appointments scheduled for you today.</p>
+                <p className="text-center py-6 text-slate-600 text-sm">No appointments scheduled for you today.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-800 text-sm text-left">
@@ -889,12 +889,10 @@ export default function Dashboard() {
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
                   <h4 className="font-bold text-slate-400 uppercase tracking-wider">Clinical Background Information</h4>
                   
-                  {/* FRONTEND CRASH BUG:
-                      Assuming medicalHistory is always populated. Accesses a method on a nullable property
-                      without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
-                      this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
                   <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
+                    {selectedPatientHistory.medicalHistory
+                      ? selectedPatientHistory.medicalHistory.toUpperCase()
+                      : 'No clinical background has been recorded for this patient yet.'}
                   </p>
                 </div>
 
@@ -985,21 +983,21 @@ export default function Dashboard() {
             ============================================================== */}
         {activeTab === 'reports' && (
           <div className="space-y-8">
-            <div className="glass p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md">
-              <div className="flex justify-between items-center mb-6">
+            <div className="surface-card bg-white/95 p-6 shadow-xl">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-teal-600" />
+                  <h3 className="text-xl font-black text-slate-950 dark:text-slate-100 flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-cyan-700" />
                     Doctor Revenue & Operations Report
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold mt-1">
+                  <p className="text-sm text-slate-600 dark:text-slate-300 font-semibold mt-1">
                     System-wide practitioner performance audits. Computes completed bookings and potential sales.
                   </p>
                 </div>
                 <button
                   onClick={generateSystemReport}
                   disabled={adminReportLoading}
-                  className="glow-btn px-4 py-2 bg-teal-600 text-white font-extrabold text-xs rounded-lg shadow hover:bg-teal-700 disabled:opacity-50 transition-colors"
+                  className="glow-btn rounded-xl bg-cyan-700 px-5 py-3 text-sm font-black text-white shadow-lg shadow-cyan-700/20 transition-colors hover:bg-cyan-800 disabled:opacity-50"
                 >
                   {adminReportLoading ? 'Aggregating...' : 'Load Doctor System Audit Report'}
                 </button>
@@ -1016,7 +1014,7 @@ export default function Dashboard() {
                   </p>
                 </div>
               ) : !adminReportData ? (
-                <div className="p-8 text-center bg-slate-100 dark:bg-slate-800/40 rounded-xl text-slate-400 text-xs font-semibold border border-dashed border-slate-200 dark:border-slate-700">
+                <div className="rounded-2xl border border-dashed border-cyan-300 bg-cyan-50/80 p-8 text-center text-sm font-bold leading-6 text-slate-700 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
                   Click the button above to load reports. Warning: Endpoint is extremely slow on larger doctor count tables!
                 </div>
               ) : (
