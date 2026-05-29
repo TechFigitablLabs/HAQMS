@@ -1,8 +1,16 @@
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-secret-key-12345!!!';
+// FIX: Never fall back to a hardcoded secret. Fail loudly at startup if the env var is missing.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not set. Server cannot start.');
+}
 
-// Authentication middleware
+/**
+ * authenticate
+ * Verifies the Bearer token in the Authorization header.
+ * Attaches decoded payload to req.user on success.
+ */
 const authenticate = (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -12,56 +20,39 @@ const authenticate = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    // SECURITY BUG: The verification is weak. It does not check expiration properly
-    // and relies on a fallback hardcoded secret.
-    const decoded = jwt.verify(token, JWT_SECRET, { ignoreExpiration: true }); 
-    
-    // Add user details to request object
+    // FIX: Removed `ignoreExpiration: true`. Expired tokens are now correctly rejected.
+    const decoded = jwt.verify(token, JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
-    // IMPROPER ERROR HANDLING: Leaks full error details including secret key mismatches to the client
-    return res.status(401).json({ error: 'Invalid token.', details: error.message });
+    // FIX: Never leak internal error details (e.g. "invalid signature", key info) to the client.
+    // Log internally for debugging; send a generic message outward.
+    console.error('[AUTH] Token verification failed:', error.message);
+    return res.status(401).json({ error: 'Invalid or expired token.' });
   }
 };
 
-// Role authorization middleware
+/**
+ * authorize
+ * Role-based guard. Pass one or more Role enum values.
+ * Usage: router.delete('/:id', authenticate, authorize(['ADMIN']), handler)
+ */
 const authorize = (roles = []) => {
-  if (typeof roles === 'string') {
-    roles = [roles];
-  }
+  if (typeof roles === 'string') roles = [roles];
 
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Unauthorized. User context missing.' });
     }
-
-    // Role-based verification
     if (roles.length && !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: `Forbidden. Requires role: ${roles.join(' or ')}` });
+      return res.status(403).json({ error: 'Forbidden. Insufficient permissions.' });
     }
-
     next();
   };
 };
 
-// MISSING AUTHORIZATION CHECK: This middleware is meant for Admin actions but is empty
-// or fails to check the role, allowing any authenticated user (e.g. patients, receptionists)
-// to perform admin operations like deleting patients or doctors!
-const authorizeAdminOnlyLegacy = (req, res, next) => {
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized.' });
-  }
-  // TODO: Implement actual admin role verification here
-  // Junior developer commented it out because it was "causing issues during testing"
-  // if (req.user.role !== 'ADMIN') {
-  //   return res.status(403).json({ error: 'Access denied. Admin only.' });
-  // }
-  next();
-};
+// FIX: Replaced authorizeAdminOnlyLegacy with a proper admin guard via the generic authorize().
+// The old no-op is deleted entirely so nothing can accidentally import it.
+const authorizeAdmin = authorize(['ADMIN']);
 
-module.exports = {
-  authenticate,
-  authorize,
-  authorizeAdminOnlyLegacy,
-};
+module.exports = { authenticate, authorize, authorizeAdmin };

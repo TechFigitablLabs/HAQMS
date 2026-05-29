@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Doctor" ALTER COLUMN "availableFrom" SET DEFAULT '09:00',
+ALTER COLUMN "availableFrom" SET DATA TYPE TEXT,
+ALTER COLUMN "availableTo" SET DEFAULT '17:00',
+ALTER COLUMN "availableTo" SET DATA TYPE TEXT;
