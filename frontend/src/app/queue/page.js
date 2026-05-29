@@ -51,7 +51,8 @@ export default function QueueMonitor() {
     }, 3000);
 
     // Junior Developer Note: "Interval created, will run forever to keep dashboard fully synced!"
-    // Missing: return () => clearInterval(intervalId);
+    // Missing: 
+       return () => clearInterval(intervalId);
   }, []); // Note that refreshCount dependency is missing too, causing stale closure on log!
 
   // Group tokens by doctor
