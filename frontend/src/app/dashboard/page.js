@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
 import { useRouter } from 'next/navigation';
@@ -33,7 +33,8 @@ export default function Dashboard() {
   const [patientSearch, setPatientSearch] = useState('');
   const [patientGender, setPatientGender] = useState('All');
   const [patientsPagination, setPatientsPagination] = useState({ page: 1, totalPages: 1 });
-  
+  const patientSearchTimeoutRef = useRef(null);
+
   // Registration Form
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -103,11 +104,25 @@ export default function Dashboard() {
       setPatientsLoading(false);
     }
   };
-
   // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
   useEffect(() => {
-    if (userRole === 'RECEPTIONIST' || userRole === 'ADMIN') {
+    if (userRole !== 'RECEPTIONIST' || userRole === 'ADMIN') return;
+    
+    if(patientSearchTimeoutRef.current){
+
+      clearTimeout(patientSearchTimeoutRef.current);
+    }
+
+    patientSearchTimeoutRef.current = setTimeout(()=> {
+
       fetchPatients(1);
+    },300);
+      
+      return()=> {
+        if(patientSearchTimeoutRef.current){
+          clearTimeout(patientSearchTimeoutRef.current);
+        }
+      
     }
   }, [patientSearch, patientGender, userRole]);
 
