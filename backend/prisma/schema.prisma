@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
 enum Role {
   ADMIN
   DOCTOR
@@ -26,6 +30,16 @@ enum QueueStatus {
   SKIPPED
 }
 
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// ---------------------------------------------------------------------------
+// Models
+// ---------------------------------------------------------------------------
+
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
@@ -33,41 +47,51 @@ model User {
   name      String
   role      Role     @default(RECEPTIONIST)
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   doctor Doctor?
 }
 
-// SCHEMA BUG: No unique constraint on (doctorId, appointmentDate).
-// This permits double-booking the same physician at the exact same time slot.
-// A proper constraint would be: @@unique([doctorId, appointmentDate])
 model Doctor {
-  id              String   @id @default(uuid())
-  userId          String?  @unique
-  user            User?    @relation(fields: [userId], references: [id])
-  name            String
-  specialization  String
-  department      String
+  id             String @id @default(uuid())
+  userId         String? @unique
+  user           User?   @relation(fields: [userId], references: [id])
+  name           String
+  specialization String
+  department     String
   consultationFee Float
   experience      Int
-  availableFrom   String   @default("09:00")
-  availableTo     String   @default("17:00")
-  createdAt       DateTime @default(now())
 
-  // MISSING INDEX: No index on department or specialization.
-  // Filtering/searching by these columns does full table scans at scale.
+  // FIX: Changed from String to Int (minutes since midnight).
+  // Storing time as plain text ("09:00") has no DB-level validation and can't be
+  // used in SQL range queries. Using Int removes ambiguity and is easy to convert:
+  //   Display  : mins => `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`
+  //   Parse in : "09:30" => 9*60+30 = 570
+  // 540 = 09:00, 1020 = 17:00
+  availableFrom Int @default(540)
+  availableTo   Int @default(1020)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
   appointments Appointment[]
   queueTokens  QueueToken[]
+
+  @@index([department])
+  @@index([specialization])
 }
 
 model Patient {
-  id             String   @id @default(uuid())
+  id             String  @id @default(uuid())
   name           String
   email          String?
-  phoneNumber    String
+  phoneNumber    String  @unique
   age            Int
-  gender         String
-  medicalHistory String?  // Nullable — intentional crash trigger for frontend bug
-  createdAt      DateTime @default(now())
+  gender         Gender
+  medicalHistory String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   appointments Appointment[]
   queueTokens  QueueToken[]
@@ -83,10 +107,15 @@ model Appointment {
   reason          String            @default("")
   status          AppointmentStatus @default(PENDING)
   createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
-  // MISSING INDEX: No index on (doctorId, status) — important for worklist queries.
-  // MISSING INDEX: No index on patientId foreign key.
   queueTokens QueueToken[]
+
+  // Prevents double-booking the same doctor at the same datetime.
+  @@unique([doctorId, appointmentDate])
+
+  @@index([doctorId, status])
+  @@index([patientId])
 }
 
 model QueueToken {
@@ -99,10 +128,24 @@ model QueueToken {
   appointmentId String?
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   status        QueueStatus @default(WAITING)
-  createdAt     DateTime    @default(now())
 
-  // MISSING INDEX: No index on (doctorId, createdAt) — used in daily token aggregation.
-  // MISSING INDEX: No index on status — used in frequent status filter queries.
-  // SCHEMA BUG: No unique constraint on (doctorId, tokenNumber, date) —
-  // race condition in checkin route can produce duplicate token numbers for the same doctor+day.
+  // FIX: Changed @default(now()) to @default(dbgenerated("CURRENT_DATE")).
+  // Using now() stored time as well as date, meaning two tokens created on the
+  // same day had different queueDate values (2026-05-29 09:01 vs 2026-05-29 14:33).
+  // The @@unique constraint on (doctorId, tokenNumber, queueDate) therefore never
+  // matched, allowing duplicate token numbers across the same day.
+  // CURRENT_DATE returns the date part only (no time), so all tokens for a given
+  // calendar day share the exact same queueDate value.
+  //
+  // In app code, set explicitly: new Date(new Date().setHours(0, 0, 0, 0))
+  queueDate DateTime @default(dbgenerated("CURRENT_DATE")) @db.Date
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Prevents duplicate token numbers for the same doctor on the same calendar day.
+  @@unique([doctorId, tokenNumber, queueDate])
+
+  @@index([doctorId, queueDate])
+  @@index([status])
 }

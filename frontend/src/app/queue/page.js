@@ -1,60 +1,66 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
 import { Activity, Bell, Monitor, RefreshCw, AlertCircle } from 'lucide-react';
+
+const POLL_INTERVAL_MS = 3000;
 
 export default function QueueMonitor() {
   const [tokens, setTokens] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  
-  // Duplicated config state just to add minor code smell
   const [refreshCount, setRefreshCount] = useState(0);
 
-  // HARDCODED API BASE URL: Duplicated from AuthContext (code duplication smell)
-  const API_BASE_URL = 'http://localhost:5000/api';
+  // FIX: Consume API_BASE_URL from AuthContext — single source of truth.
+  // Previously hardcoded as 'http://localhost:5000/api' directly in this file,
+  // duplicating config and making it impossible to change the domain in one place.
+  const { API_BASE_URL, token } = useAuth();
 
-  const fetchQueueData = async () => {
+  // FIX: Wrapped in useCallback so it can be safely listed as a dependency
+  // in useEffect without causing infinite re-render loops.
+  const fetchQueueData = useCallback(async () => {
     try {
-      // Insecure: Fetches queue without checking credentials (it's a public dashboard, which is fine, 
-      // but it uses the hardcoded API domain)
-      const res = await fetch(`${API_BASE_URL}/queue`);
+      const res = await fetch(`${API_BASE_URL}/queue`, {
+        // FIX: Queue monitor is a staff-facing page, not truly public — pass token
+        // if present so the backend auth middleware doesn't reject it. Unauthenticated
+        // visitors will receive a 401 and see the error state below.
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
       if (!res.ok) {
         throw new Error('Failed to retrieve active token queue.');
       }
+
       const data = await res.json();
-      setTokens(data);
+      // FIX: Backend now returns { success, data: [...] } envelope — unwrap it.
+      setTokens(data.data ?? data);
       setError('');
     } catch (err) {
-      console.error('Queue poll fetch error:', err);
+      console.error('[QueueMonitor] Poll error:', err.message);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [API_BASE_URL, token]);
 
   useEffect(() => {
-    // Initial fetch
     fetchQueueData();
 
-    // MEMORY LEAK BUG:
-    // This setInterval has NO cleanup function (does not return clearInterval).
-    // Every time this page is mounted, a new background polling timer is spun up.
-    // If the candidate navigates between Dashboard and Queue multiple times,
-    // dozens of parallel intervals will poll the database, causing memory bloat,
-    // state update crashes on unmounted components, and heavy server load.
     const intervalId = setInterval(() => {
-      console.log(`[POLL] Active Queue Poll #${refreshCount + 1} firing...`);
       fetchQueueData();
       setRefreshCount((prev) => prev + 1);
-    }, 3000);
+    }, POLL_INTERVAL_MS);
 
-    // Junior Developer Note: "Interval created, will run forever to keep dashboard fully synced!"
-    // Missing: return () => clearInterval(intervalId);
-  }, []); // Note that refreshCount dependency is missing too, causing stale closure on log!
+    // FIX: Missing cleanup — the original code never returned clearInterval().
+    // Every mount spun up a new interval that kept firing after the component
+    // unmounted, causing: memory leaks, "setState on unmounted component" warnings,
+    // stale closures on the log line, and multiplying server load on navigation.
+    return () => clearInterval(intervalId);
+  }, [fetchQueueData]);
 
-  // Group tokens by doctor
+  // Group tokens by doctor — only WAITING and CALLING matter for the display board.
   const groupedTokens = tokens.reduce((groups, token) => {
     const docId = token.doctorId;
     if (!groups[docId]) {
@@ -65,7 +71,6 @@ export default function QueueMonitor() {
         waiting: [],
       };
     }
-    
     if (token.status === 'CALLING') {
       groups[docId].calling = token;
     } else if (token.status === 'WAITING') {
@@ -77,9 +82,8 @@ export default function QueueMonitor() {
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 max-w-7xl w-full mx-auto p-6 sm:p-8">
-        {/* Header Dashboard Banner */}
         <div className="glass p-6 sm:p-8 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-teal-500/10 text-teal-600 dark:text-teal-400 rounded-xl">
@@ -94,7 +98,7 @@ export default function QueueMonitor() {
               </p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/15 text-teal-600 dark:text-teal-400 text-xs font-bold uppercase tracking-wide border border-teal-500/20">
               <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -106,17 +110,15 @@ export default function QueueMonitor() {
           </div>
         </div>
 
-        {/* Error State */}
         {error && (
           <div className="p-4 mb-6 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center gap-3 text-sm">
             <AlertCircle className="h-5 w-5 shrink-0" />
             <div>
-              <strong>Sync Error:</strong> {error} - Please verify that the backend API server is online.
+              <strong>Sync Error:</strong> {error} — Please verify that the backend API server is online.
             </div>
           </div>
         )}
 
-        {/* Loading Spinner */}
         {loading && tokens.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="pulse-loader">
@@ -134,14 +136,12 @@ export default function QueueMonitor() {
             </p>
           </div>
         ) : (
-          /* Grid of Doctor Calling Boards */
           <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
             {Object.entries(groupedTokens).map(([docId, docInfo]) => (
               <div
                 key={docId}
                 className="glass rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col h-full hover:shadow-teal-500/5 hover:border-teal-500/30 transition-all duration-300"
               >
-                {/* Doctor Title Header */}
                 <div className="bg-slate-500/5 p-5 border-b border-slate-200 dark:border-slate-800">
                   <h3 className="font-extrabold text-lg text-slate-800 dark:text-slate-100">{docInfo.doctorName}</h3>
                   <p className="text-xs text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider mt-0.5">
@@ -149,16 +149,13 @@ export default function QueueMonitor() {
                   </p>
                 </div>
 
-                {/* Token Display Grid */}
                 <div className="p-6 flex-1 flex flex-col justify-between">
-                  {/* Current Active Token Box */}
                   <div className="mb-6">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2.5">
                       Now Calling
                     </h4>
                     {docInfo.calling ? (
                       <div className="bg-teal-500/10 dark:bg-teal-500/5 border border-teal-500/30 p-6 rounded-2xl text-center shadow-inner relative overflow-hidden group">
-                        {/* Glowing radial accent */}
                         <div className="absolute inset-0 bg-radial-gradient(circle, rgba(20,184,166,0.1) 0%, transparent 80%) opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <span className="block text-5xl font-black text-teal-600 dark:text-teal-400 tracking-wider animate-pulse">
                           #{docInfo.calling.tokenNumber}
@@ -179,20 +176,19 @@ export default function QueueMonitor() {
                     )}
                   </div>
 
-                  {/* Upcoming Tokens list */}
                   <div>
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
                       Queue List
                     </h4>
                     {docInfo.waiting.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
-                        {docInfo.waiting.map((token) => (
+                        {docInfo.waiting.map((t) => (
                           <div
-                            key={token.id}
+                            key={t.id}
                             className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300"
-                            title={`Patient: ${token.patient.name}`}
+                            title={`Patient: ${t.patient.name}`}
                           >
-                            #{token.tokenNumber}
+                            #{t.tokenNumber}
                           </div>
                         ))}
                       </div>

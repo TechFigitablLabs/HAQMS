@@ -1,8 +1,8 @@
-'use client';
-
 import Link from 'next/link';
 import { ShieldAlert, ArrowLeft, Activity } from 'lucide-react';
 
+// FIX: Removed 'use client' — Next.js not-found.js is a Server Component by default.
+// Making it a client component for no reason adds unnecessary JS to the bundle.
 export default function NotFound() {
   return (
     <div className="flex flex-col min-h-screen justify-center items-center py-12 px-6 lg:px-8 text-center">
@@ -11,21 +11,19 @@ export default function NotFound() {
           <Activity className="h-8 w-8 animate-pulse" />
           HAQMS
         </Link>
-        
+
         <div className="glass p-8 rounded-2xl border border-rose-500/20 shadow-xl max-w-sm mx-auto">
           <div className="p-4 bg-rose-500/10 text-rose-500 rounded-full w-fit mx-auto mb-6">
             <ShieldAlert className="h-10 w-10 animate-bounce" />
           </div>
-          
+
           <h2 className="text-4xl font-black text-slate-800 dark:text-slate-100">404</h2>
           <h3 className="mt-2 text-xl font-bold text-slate-800 dark:text-slate-100">
-            Page Not Found / Incomplete
+            Page Not Found
           </h3>
-          
+
           <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-            <strong>Candidate Mission Note:</strong> This route is deliberately left incomplete! 
-            Clicking a &ldquo;View Medical Records&rdquo; link triggers this 404. 
-            Your task might include building the missing page component to fetch and render patient records.
+            The page you&apos;re looking for doesn&apos;t exist or hasn&apos;t been built yet.
           </p>
 
           <div className="mt-8">

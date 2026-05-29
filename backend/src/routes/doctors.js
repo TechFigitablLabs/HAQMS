@@ -1,93 +1,91 @@
 const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticate } = require('../middleware/auth');
+const { formatDoctorTimes, timeToMins, isValidTimeStr } = require('../utils/time.js');
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
+// ---------------------------------------------------------------------------
 // GET /api/doctors
-// Retrieve list of doctors with special search filtering
-// SECURITY BUG: SQL Injection vulnerability in the search parameter!
-// Uses queryRawUnsafe with string concatenation instead of parameterized inputs.
+// ---------------------------------------------------------------------------
 router.get('/', authenticate, async (req, res) => {
   try {
     const { search, specialization } = req.query;
-
-    let query = 'SELECT * FROM "Doctor"';
-    const conditions = [];
+console.log(`[DOCTORS] List request with search='${search}' and specialization='${specialization}'`); // Debug log for query params
+    // FIX: Replaced $queryRawUnsafe + string interpolation with Prisma's type-safe
+    // query builder. No SQL injection possible — all values go through parameterised binds.
+    const where = {};
 
     if (search) {
-      // Direct string interpolation - VULNERABLE TO SQL INJECTION!
-      // Example exploit: search=House%' UNION SELECT id, email, password, name, role, '09:00', '17:00', 0, id FROM "User" --
-      conditions.push(`name ILIKE '%${search}%'`);
+      // Prisma's `contains` with `mode: 'insensitive'` compiles to ILIKE under Postgres.
+      where.name = { contains: search, mode: 'insensitive' };
     }
 
     if (specialization && specialization !== 'All') {
-      conditions.push(`specialization = '${specialization}'`);
+      where.specialization = specialization;
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    console.log(`[SQL-DEBUG] Executing Query: ${query}`);
-    const doctors = await prisma.$queryRawUnsafe(query);
-
-    // Inconsistent API formatting (directly sending array)
-    res.json(doctors);
+    const doctors = await prisma.doctor.findMany({
+      where,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        specialization: true,
+        department: true,
+        consultationFee: true,
+        experience: true,
+        availableFrom: true,
+        availableTo: true,
+      },
+    });
+console.log(`[DOCTORS] Retrieved ${doctors.length} doctors from DB`); // Debug log for DB result count
+    // Convert DB integers back to "HH:MM" strings before sending to the client.
+    res.json({ success: true, count: doctors.length, data: doctors.map(formatDoctorTimes) });
   } catch (error) {
-    // Leaks query syntax details to candidate/attacker
-    res.status(500).json({ error: 'Database execution failure', sqlMessage: error.message });
+    // FIX: No SQL message or query details leaked to the client.
+    console.error('[DOCTORS] List error:', error);
+    res.status(500).json({ error: 'Failed to retrieve doctors.' });
   }
 });
 
+// ---------------------------------------------------------------------------
 // GET /api/doctors/stats
-// Returns aggregation details about available doctors
-// PERFORMANCE BUG: Sequential async calls instead of Promise.all()
+// NOTE: This route must be registered BEFORE /:id so Express doesn't treat
+//       "stats" as a dynamic segment.
+// ---------------------------------------------------------------------------
 router.get('/stats', authenticate, async (req, res) => {
   try {
-    const start = Date.now();
+    // FIX: All four independent DB calls run in parallel with Promise.all.
+    // Previously sequential — this cut latency to the duration of the slowest single call.
+    const [totalDoctors, surgeonsCount, averageFeeResult, highestExperienceResult] =
+      await Promise.all([
+        prisma.doctor.count(),
+        prisma.doctor.count({ where: { department: 'Surgery' } }),
+        prisma.doctor.aggregate({ _avg: { consultationFee: true } }),
+        prisma.doctor.aggregate({ _max: { experience: true } }),
+      ]);
 
-    // Independent database calls are run sequentially with await, stalling the event loop
-    const totalDoctors = await prisma.doctor.count();
-    
-    const surgeonsCount = await prisma.doctor.count({
-      where: { department: 'Surgery' },
-    });
-
-    const averageFee = await prisma.doctor.aggregate({
-      _avg: {
-        consultationFee: true,
-      },
-    });
-
-    const highestExperience = await prisma.doctor.aggregate({
-      _max: {
-        experience: true,
-      },
-    });
-
-    const durationMs = Date.now() - start;
-
+    // FIX: Removed debugInfo.executionTimeMs — don't hand attackers a timing oracle.
     res.json({
       success: true,
       data: {
         total: totalDoctors,
         surgeons: surgeonsCount,
-        averageFee: Math.round(averageFee._avg.consultationFee || 0),
-        maxExperience: highestExperience._max.experience || 0,
+        averageFee: Math.round(averageFeeResult._avg.consultationFee || 0),
+        maxExperience: highestExperienceResult._max.experience || 0,
       },
-      debugInfo: {
-        executionTimeMs: durationMs,
-        notes: 'Loaded sequentially for safety. Optimization needed.'
-      }
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[DOCTORS] Stats error:', error);
+    res.status(500).json({ error: 'Failed to retrieve doctor stats.' });
   }
 });
 
+// ---------------------------------------------------------------------------
 // GET /api/doctors/:id
+// ---------------------------------------------------------------------------
 router.get('/:id', authenticate, async (req, res) => {
   try {
     const doctor = await prisma.doctor.findUnique({
@@ -95,12 +93,107 @@ router.get('/:id', authenticate, async (req, res) => {
     });
 
     if (!doctor) {
-      return res.status(404).json({ error: 'Doctor not found' });
+      return res.status(404).json({ error: 'Doctor not found.' });
     }
 
-    res.json(doctor);
+    res.json({ success: true, data: formatDoctorTimes(doctor) });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[DOCTORS] Get by ID error:', error);
+    res.status(500).json({ error: 'Failed to retrieve doctor.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/doctors
+// Accepts availableFrom / availableTo as "HH:MM" strings; stores as Int.
+// ---------------------------------------------------------------------------
+router.post('/', authenticate, async (req, res) => {
+  try {
+    const { name, specialization, department, consultationFee, experience, availableFrom, availableTo } = req.body;
+
+    if (!name || !specialization || !department || consultationFee == null || experience == null) {
+      return res.status(400).json({ error: 'name, specialization, department, consultationFee, and experience are required.' });
+    }
+
+    // Validate and convert time strings if provided; fall back to schema defaults (540 / 1020).
+    let fromMins = 540;
+    let toMins = 1020;
+
+    if (availableFrom !== undefined) {
+      if (!isValidTimeStr(availableFrom)) {
+        return res.status(400).json({ error: 'availableFrom must be a valid "HH:MM" string.' });
+      }
+      fromMins = timeToMins(availableFrom);
+    }
+    if (availableTo !== undefined) {
+      if (!isValidTimeStr(availableTo)) {
+        return res.status(400).json({ error: 'availableTo must be a valid "HH:MM" string.' });
+      }
+      toMins = timeToMins(availableTo);
+    }
+
+    if (fromMins >= toMins) {
+      return res.status(400).json({ error: 'availableFrom must be earlier than availableTo.' });
+    }
+
+    const doctor = await prisma.doctor.create({
+      data: {
+        name,
+        specialization,
+        department,
+        consultationFee: parseFloat(consultationFee),
+        experience: parseInt(experience, 10),
+        availableFrom: fromMins,
+        availableTo: toMins,
+      },
+    });
+
+    res.status(201).json({ success: true, data: formatDoctorTimes(doctor) });
+  } catch (error) {
+    console.error('[DOCTORS] Create error:', error);
+    res.status(500).json({ error: 'Failed to create doctor.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /api/doctors/:id
+// Accepts availableFrom / availableTo as "HH:MM" strings; converts on write.
+// ---------------------------------------------------------------------------
+router.patch('/:id', authenticate, async (req, res) => {
+  try {
+    const { availableFrom, availableTo, ...rest } = req.body;
+    const data = { ...rest };
+
+    if (availableFrom !== undefined) {
+      if (!isValidTimeStr(availableFrom)) {
+        return res.status(400).json({ error: 'availableFrom must be a valid "HH:MM" string.' });
+      }
+      data.availableFrom = timeToMins(availableFrom);
+    }
+    if (availableTo !== undefined) {
+      if (!isValidTimeStr(availableTo)) {
+        return res.status(400).json({ error: 'availableTo must be a valid "HH:MM" string.' });
+      }
+      data.availableTo = timeToMins(availableTo);
+    }
+
+    // If both are being updated in the same request, validate order.
+    if (data.availableFrom != null && data.availableTo != null && data.availableFrom >= data.availableTo) {
+      return res.status(400).json({ error: 'availableFrom must be earlier than availableTo.' });
+    }
+
+    const doctor = await prisma.doctor.update({
+      where: { id: req.params.id },
+      data,
+    });
+
+    res.json({ success: true, data: formatDoctorTimes(doctor) });
+  } catch (error) {
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Doctor not found.' });
+    }
+    console.error('[DOCTORS] Update error:', error);
+    res.status(500).json({ error: 'Failed to update doctor.' });
   }
 });
 

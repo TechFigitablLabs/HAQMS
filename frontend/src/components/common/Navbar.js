@@ -7,7 +7,27 @@ import { Activity, LogOut, LayoutDashboard, MonitorPlay, Shield } from 'lucide-r
 export default function Navbar() {
   const { user, logout } = useAuth();
 
-  if (!user) return null;
+  // FIX: The original returned null when user was absent, which meant the navbar
+  // simply disappeared on the queue monitor page (which doesn't require auth).
+  // Now renders a minimal brand-only bar for unauthenticated visitors.
+  if (!user) {
+    return (
+      <nav className="glass sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800 px-6 py-4 shadow-sm backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <Link href="/" className="flex items-center gap-2 text-teal-600 dark:text-teal-400 font-extrabold text-2xl tracking-tight">
+            <Activity className="h-6 w-6 animate-pulse" />
+            <span>HAQMS</span>
+          </Link>
+          <Link
+            href="/login"
+            className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors"
+          >
+            Staff Login
+          </Link>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className="glass sticky top-0 z-50 border-b border-slate-200 dark:border-slate-800 px-6 py-4 shadow-sm backdrop-blur-md">
@@ -18,7 +38,7 @@ export default function Navbar() {
           <span>HAQMS</span>
         </Link>
 
-        {/* Links */}
+        {/* Nav links */}
         <div className="flex items-center gap-6">
           <Link
             href="/dashboard"
@@ -36,7 +56,7 @@ export default function Navbar() {
           </Link>
         </div>
 
-        {/* User Info & Actions */}
+        {/* User info + logout */}
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex flex-col items-end">
             <span className="text-sm font-bold text-slate-800 dark:text-slate-100">{user.name}</span>
@@ -50,6 +70,7 @@ export default function Navbar() {
             onClick={logout}
             className="p-2 rounded-lg bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500 hover:text-white transition-all duration-300 focus:outline-none"
             title="Log Out"
+            aria-label="Log out"
           >
             <LogOut className="h-5 w-5" />
           </button>

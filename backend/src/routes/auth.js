@@ -2,120 +2,139 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const { authenticate } = require('../middleware/auth');
 
 const router = express.Router();
 const prisma = new PrismaClient();
-const JWT_SECRET = process.env.JWT_SECRET || 'my-super-secret-secret-key-12345!!!';
+const JWT_SECRET = process.env.JWT_SECRET; // Guaranteed set by middleware/auth.js startup check
 
+
+// FIX: Centralised response shape — same structure everywhere.
+const userPayload = (user) => ({
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  role: user.role,
+});
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// Min 8 chars, at least one uppercase, one lowercase, one digit
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+// ---------------------------------------------------------------------------
 // POST /api/auth/register
+// ---------------------------------------------------------------------------
 router.post('/register', async (req, res) => {
   try {
-    // SENSITIVE CONSOLE LOG: Logging raw request bodies with cleartext passwords!
-    console.log('[DEBUG] Registering user with payload:', JSON.stringify(req.body));
-
+    // FIX: Removed console.log that printed the raw request body (cleartext password).
     const { email, password, name, role } = req.body;
 
-    // MISSING VALIDATION: Does not check if email is valid format or if password is strong
+    // FIX: Validate email format and password strength before touching the DB.
     if (!email || !password || !name) {
-      return res.status(400).json({ error: 'All fields are required' });
+      return res.status(400).json({ error: 'email, password, and name are required.' });
+    }
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format.' });
+    }
+    if (!PASSWORD_REGEX.test(password)) {
+      return res.status(400).json({
+        error:
+          'Password must be at least 8 characters and include uppercase, lowercase, and a digit.',
+      });
     }
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
-      return res.status(400).json({ error: 'User already exists with this email' });
+      return res.status(400).json({ error: 'A user with this email already exists.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
         name,
-        role: role || 'RECEPTIONIST',
+        // FIX: Only allow RECEPTIONIST self-registration. ADMIN/DOCTOR roles must be
+        // assigned by an existing ADMIN — never trust role from the request body directly.
+        role: 'RECEPTIONIST',
       },
     });
 
-    // INCONSISTENT API RESPONSE: Returns the created user object directly, including password hash!
-    // This is a major security flaw.
+    // FIX: Return only safe fields — never include the password hash.
     res.status(201).json({
-      message: 'User registered successfully',
-      user,
+      success: true,
+      message: 'User registered successfully.',
+      user: userPayload(user),
     });
   } catch (error) {
-    // IMPROPER ERROR HANDLING: Leaking database errors and details
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Server error during registration', databaseError: error.message });
+    // FIX: Log the full error server-side; return a generic message to the client.
+    console.error('[AUTH] Registration error:', error);
+    res.status(500).json({ error: 'Server error during registration.' });
   }
 });
 
+// ---------------------------------------------------------------------------
 // POST /api/auth/login
+// ---------------------------------------------------------------------------
 router.post('/login', async (req, res) => {
   try {
-    // SENSITIVE CONSOLE LOG: Logging plain-text passwords on login attempts!
-    console.log(`[AUTH] Login attempt for email: ${req.body.email} with password: ${req.body.password}`);
-
+    // FIX: Removed console.log that printed the plaintext password.
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: 'Email and password are required.' });
     }
 
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      // Keep the message generic to prevent user-enumeration attacks.
+      return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
-    // Weak JWT token generation: signs token with no expiration limit or massive expiry (365 days)
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role, name: user.name },
-      JWT_SECRET,
-      { expiresIn: '365d' }
-    );
+    // FIX: Short-lived token (15 min access). For production, pair with a refresh-token
+    // flow. Using 1h here as a pragmatic middle ground that still expires.
+    const token = jwt.sign(userPayload(user), JWT_SECRET, { expiresIn: '1h' });
 
-    // INCONSISTENT API RESPONSE format: Returns a nested success payload
-    // Different from registration response style
+    // FIX: Consistent response shape — success boolean at top level, data nested.
     res.json({
-      status: 'success',
+      success: true,
       data: {
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-        },
+        user: userPayload(user),
       },
     });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal Server Error', errorStack: error.stack });
+    // FIX: Never send error.stack to the client.
+    console.error('[AUTH] Login error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
+// ---------------------------------------------------------------------------
 // GET /api/auth/me
-// Returns current user details based on JWT
-const { authenticate } = require('../middleware/auth');
+// ---------------------------------------------------------------------------
 router.get('/me', authenticate, async (req, res) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: { id: true, email: true, name: true, role: true },
     });
-    
+
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: 'User not found.' });
     }
-    
-    res.json(user); // Returns flat object, inconsistent with the nested login response!
+
+    // FIX: Consistent response shape.
+    res.json({ success: true, data: { user } });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('[AUTH] /me error:', error);
+    res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
