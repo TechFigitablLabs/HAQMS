@@ -49,7 +49,7 @@ const AuthProvider = ({ children })=>{
     // HARDCODED API VALUE: Intentionally hardcoding the backend base URL on the frontend!
     // This violates production standards and prevents simple domain config, but serves as
     // a perfect exercise for internship candidates to move to environment variables.
-    const API_BASE_URL = 'http://localhost:5000/api';
+    const API_BASE_URL = process.env.NEXT_API_BASE_URL;
     (0, __TURBOPACK__imported__module__$5b$project$5d2f$frontend$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["useEffect"])(()=>{
         // Check for stored token and user on initialization
         const storedToken = localStorage.getItem('haqms_token');
