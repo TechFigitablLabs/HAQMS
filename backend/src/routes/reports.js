@@ -6,57 +6,55 @@ const router = express.Router();
 const prisma = new PrismaClient();
 
 // GET /api/reports/doctor-stats
-// Highly inefficient nested loop aggregate reporting for admin/receptionists dashboard
-// PERFORMANCE BUG: Performs multiple nested DB queries inside a loop for every doctor.
-// Runs sequentially, blocking/scaling terrible with doctors count.
+// Optimized: Uses set-based groupBy queries instead of per-doctor loops
 router.get('/doctor-stats', authenticate, async (req, res) => {
   try {
     const start = Date.now();
 
-    // 1. Fetch all doctors
-    const doctors = await prisma.doctor.findMany();
-    const reportData = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-    // 2. Loop through every doctor and query databases sequentially!
-    for (const doc of doctors) {
-      console.log(`[SLOW REPORT] Querying stats sequentially for doctor: ${doc.name}`);
+    // Run all three set-based queries in parallel (3 queries total, regardless of doctor count)
+    const [doctors, appointmentStats, todayQueueStats] = await Promise.all([
+      prisma.doctor.findMany(),
+      prisma.appointment.groupBy({
+        by: ['doctorId', 'status'],
+        _count: { id: true },
+      }),
+      prisma.queueToken.groupBy({
+        by: ['doctorId'],
+        where: { createdAt: { gte: today } },
+        _count: { id: true },
+      }),
+    ]);
 
-      // Count total appointments
-      const totalAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id },
-      });
+    // Build lookup maps from the grouped results
+    // appointmentMap: { doctorId -> { status -> count } }
+    const appointmentMap = {};
+    for (const stat of appointmentStats) {
+      if (!appointmentMap[stat.doctorId]) {
+        appointmentMap[stat.doctorId] = {};
+      }
+      appointmentMap[stat.doctorId][stat.status] = stat._count.id;
+    }
 
-      // Count completed appointments
-      const completedAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id, status: 'COMPLETED' },
-      });
+    // queueMap: { doctorId -> count }
+    const queueMap = {};
+    for (const stat of todayQueueStats) {
+      queueMap[stat.doctorId] = stat._count.id;
+    }
 
-      // Count cancelled appointments
-      const cancelledAppointments = await prisma.appointment.count({
-        where: { doctorId: doc.id, status: 'CANCELLED' },
-      });
+    // Assemble the report from pre-fetched data (zero additional queries)
+    const reportData = doctors.map((doc) => {
+      const docStats = appointmentMap[doc.id] || {};
+      const totalAppointments =
+        (docStats['PENDING'] || 0) +
+        (docStats['COMPLETED'] || 0) +
+        (docStats['CANCELLED'] || 0);
+      const completedAppointments = docStats['COMPLETED'] || 0;
+      const cancelledAppointments = docStats['CANCELLED'] || 0;
 
-      // Fetch queue tokens count today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const queueTokensCount = await prisma.queueToken.count({
-        where: {
-          doctorId: doc.id,
-          createdAt: { gte: today },
-        },
-      });
-
-      // Calculate total potential revenue
-      const appointmentsList = await prisma.appointment.findMany({
-        where: { doctorId: doc.id, status: 'COMPLETED' },
-      });
-      const revenue = appointmentsList.length * doc.consultationFee;
-
-      // Add artifical wait to simulate load under scaled database
-      // "Ensures database connection doesn't drop" - junior dev comment
-      await new Promise(r => setTimeout(r, 80));
-
-      reportData.push({
+      return {
         id: doc.id,
         name: doc.name,
         specialization: doc.specialization,
@@ -64,10 +62,10 @@ router.get('/doctor-stats', authenticate, async (req, res) => {
         totalAppointments,
         completedAppointments,
         cancelledAppointments,
-        todayQueueSize: queueTokensCount,
-        revenue,
-      });
-    }
+        todayQueueSize: queueMap[doc.id] || 0,
+        revenue: completedAppointments * doc.consultationFee,
+      };
+    });
 
     const durationMs = Date.now() - start;
 

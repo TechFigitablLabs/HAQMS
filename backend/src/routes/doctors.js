@@ -34,29 +34,28 @@ router.get('/', authenticate, async (req, res) => {
 
 // GET /api/doctors/stats
 // Returns aggregation details about available doctors
-// PERFORMANCE BUG: Sequential async calls instead of Promise.all()
+// FIXED: Independent queries now run in parallel via Promise.all()
 router.get('/stats', authenticate, async (req, res) => {
   try {
     const start = Date.now();
 
-    // Independent database calls are run sequentially with await, stalling the event loop
-    const totalDoctors = await prisma.doctor.count();
-    
-    const surgeonsCount = await prisma.doctor.count({
-      where: { department: 'Surgery' },
-    });
-
-    const averageFee = await prisma.doctor.aggregate({
-      _avg: {
-        consultationFee: true,
-      },
-    });
-
-    const highestExperience = await prisma.doctor.aggregate({
-      _max: {
-        experience: true,
-      },
-    });
+    // Run all independent database calls in parallel
+    const [totalDoctors, surgeonsCount, averageFee, highestExperience] = await Promise.all([
+      prisma.doctor.count(),
+      prisma.doctor.count({
+        where: { department: 'Surgery' },
+      }),
+      prisma.doctor.aggregate({
+        _avg: {
+          consultationFee: true,
+        },
+      }),
+      prisma.doctor.aggregate({
+        _max: {
+          experience: true,
+        },
+      }),
+    ]);
 
     const durationMs = Date.now() - start;
 
@@ -70,7 +69,7 @@ router.get('/stats', authenticate, async (req, res) => {
       },
       debugInfo: {
         executionTimeMs: durationMs,
-        notes: 'Loaded sequentially for safety. Optimization needed.'
+        notes: 'Queries run in parallel via Promise.all.'
       }
     });
   } catch (error) {
