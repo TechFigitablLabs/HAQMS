@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/common/Navbar';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
   Users, CalendarDays, Activity, Search, Sparkles, UserPlus, 
@@ -13,18 +14,17 @@ import {
 export default function Dashboard() {
   const { user, token, API_BASE_URL, logout } = useAuth();
   const router = useRouter();
+  const userRole = user?.role;
 
   // Navigation Guard
   useEffect(() => {
     if (!user) {
       router.push('/login');
     }
-  }, [user]);
-
-  if (!user) return null;
+  }, [user, router]);
 
   // Global State
-  const [activeTab, setActiveTab] = useState(user.role === 'ADMIN' ? 'reports' : user.role === 'RECEPTIONIST' ? 'patients' : 'appointments');
+  const [activeTab, setActiveTab] = useState('reports');
 
   // ==========================================
   // STATE FOR RECEPTIONIST WORKFLOWS
@@ -34,7 +34,8 @@ export default function Dashboard() {
   const [patientSearch, setPatientSearch] = useState('');
   const [patientGender, setPatientGender] = useState('All');
   const [patientsPagination, setPatientsPagination] = useState({ page: 1, totalPages: 1 });
-  
+  const patientSearchTimeoutRef = useRef(null);
+
   // Registration Form
   const [regName, setRegName] = useState('');
   const [regEmail, setRegEmail] = useState('');
@@ -67,6 +68,16 @@ export default function Dashboard() {
   const [adminReportLoading, setAdminReportLoading] = useState(false);
   const [adminSearchQuery, setAdminSearchQuery] = useState('');
 
+  useEffect(() => {
+    if (userRole === 'ADMIN') {
+      setActiveTab('reports');
+    } else if (userRole === 'RECEPTIONIST') {
+      setActiveTab('patients');
+    } else if (userRole === 'DOCTOR') {
+      setActiveTab('appointments');
+    }
+  }, [userRole]);
+
   // ==========================================
   // RECEPTIONIST FUNCTIONS
   // ==========================================
@@ -94,13 +105,27 @@ export default function Dashboard() {
       setPatientsLoading(false);
     }
   };
-
   // Trigger Patient List Fetch (Every keystroke trigger re-renders parent! - Performance bug)
   useEffect(() => {
-    if (user.role === 'RECEPTIONIST' || user.role === 'ADMIN') {
-      fetchPatients(1);
+    if (userRole !== 'RECEPTIONIST' || userRole === 'ADMIN') return;
+    
+    if(patientSearchTimeoutRef.current){
+
+      clearTimeout(patientSearchTimeoutRef.current);
     }
-  }, [patientSearch, patientGender]);
+
+    patientSearchTimeoutRef.current = setTimeout(()=> {
+
+      fetchPatients(1);
+    },300);
+      
+      return()=> {
+        if(patientSearchTimeoutRef.current){
+          clearTimeout(patientSearchTimeoutRef.current);
+        }
+      
+    }
+  }, [patientSearch, patientGender, userRole]);
 
   // Fetch Doctors for booking drop-down
   const fetchDoctorsDropdown = async () => {
@@ -253,7 +278,7 @@ export default function Dashboard() {
   // DOCTOR WORKFLOW FUNCTIONS
   // ==========================================
   const fetchDoctorWorklist = async () => {
-    if (user.role !== 'DOCTOR') return;
+    if (userRole !== 'DOCTOR' || !user) return;
     try {
       // Find matching doctor from doctors dropdown using user ID link
       const matchedDoc = doctorsList.find(d => d.userId === user.id);
@@ -281,10 +306,10 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    if (user.role === 'DOCTOR' && doctorsList.length > 0) {
+    if (userRole === 'DOCTOR' && doctorsList.length > 0) {
       fetchDoctorWorklist();
     }
-  }, [doctorsList]);
+  }, [doctorsList, userRole]);
 
   // Update token status (WAITING -> CALLING -> COMPLETED / SKIPPED)
   const handleUpdateQueueStatus = async (tokenId, newStatus) => {
@@ -363,6 +388,8 @@ export default function Dashboard() {
       console.error(e);
     }
   };
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -889,12 +916,10 @@ export default function Dashboard() {
                 <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 text-xs space-y-2">
                   <h4 className="font-bold text-slate-400 uppercase tracking-wider">Clinical Background Information</h4>
                   
-                  {/* FRONTEND CRASH BUG:
-                      Assuming medicalHistory is always populated. Accesses a method on a nullable property
-                      without optional chaining! If medicalHistory is null (which is the case for Batman, Clark Kent, etc.),
-                      this code throws: "Cannot read properties of null (reading 'toUpperCase')" and crashes the app! */}
+                  {/* FRONTEND CRASH BUG FIX:
+                      Safely handle missing medicalHistory so null/undefined values do not crash the UI. */}
                   <p className="text-slate-700 dark:text-slate-300 leading-5 text-sm font-semibold">
-                    {selectedPatientHistory.medicalHistory.toUpperCase()}
+                    {selectedPatientHistory.medicalHistory?.toUpperCase() || 'No medical history available.'}
                   </p>
                 </div>
 
