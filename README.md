@@ -2,6 +2,10 @@
 
 HAQMS is a full-stack hospital operations platform built for the Figital Labs full-stack web development internship assignment. It supports staff login, patient registration, doctor and appointment management, real-time queue monitoring, medical history access, and admin reporting.
 
+## Home Page :
+<img width="1500" height="688" alt="image" src="https://github.com/user-attachments/assets/ee05d845-c1e8-4016-9d79-b2dd93af7778" />
+
+
 ## System Diagrams
 
 ### UML Class Diagram
