@@ -5,9 +5,21 @@ const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
+const emitQueueEvent = (req, eventName, payload) => {
+  const io = req.app.get('io');
+  if (io) {
+    io.emit(eventName, payload);
+    io.emit('queue:changed', {
+      event: eventName,
+      token: payload,
+      changedAt: new Date().toISOString(),
+    });
+  }
+};
+
 // GET /api/queue
-// List all active queue tokens
-router.get('/', authenticate, async (req, res) => {
+// Public queue monitor read. Check-in and status mutations remain protected below.
+router.get('/', async (req, res) => {
   try {
     const { doctorId, status } = req.query;
 
@@ -80,6 +92,8 @@ router.post('/checkin', authenticate, async (req, res) => {
       },
     });
 
+    emitQueueEvent(req, 'queue:created', newToken);
+
     res.status(201).json({
       message: 'Checked in successfully. Token generated.',
       token: newToken,
@@ -108,6 +122,8 @@ router.patch('/:id', authenticate, async (req, res) => {
         doctor: true,
       },
     });
+
+    emitQueueEvent(req, 'queue:updated', updatedToken);
 
     res.json(updatedToken);
   } catch (error) {

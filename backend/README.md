@@ -1,26 +1,86 @@
-# HAQMS Backend - Node + Express + Prisma API Server
+# HAQMS Backend
 
-This is the Express API server and database layer for the Hospital Appointment & Queue Management System.
+This backend powers the HAQMS hospital operations platform. It exposes REST APIs for authentication, patients, doctors, appointments, queue tokens, and reports. It also runs the Socket.IO server used for live queue updates.
 
-## 🚀 Running the API
-The backend server runs on port `5000` by default.
+## Responsibilities
 
-### Setup Database Environment
-1. Ensure a local PostgreSQL instance is running or launch the pre-packaged docker container.
-2. Build migrations and run the mock seed:
-```bash
-npm run db:setup
+- Authenticate staff users with JWT.
+- Store hospital data in PostgreSQL through Prisma.
+- Manage patients, doctors, appointments, and queue tokens.
+- Emit real-time queue updates through Socket.IO.
+- Provide report endpoints for admin dashboard views.
+
+## Tech Stack
+
+- Node.js
+- Express.js
+- Prisma ORM
+- PostgreSQL
+- Socket.IO
+- JWT
+- bcryptjs
+
+## Environment Setup
+
+Create `backend/.env` from `backend/.env.example`:
+
+```env
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/haqms?schema=public"
+PORT=5000
+CLIENT_URL="http://localhost:3000"
+JWT_SECRET="replace-with-a-strong-secret"
 ```
 
-### Start Development Server
+Do not commit the real `.env` file.
+
+## Install And Run
+
 ```bash
+cd backend
+npm install
+npx prisma generate
+npx prisma migrate dev
+node prisma/seed.js
 npm run dev
 ```
 
-## 🔍 Candidate Scope
-Analyze, profile, secure, and refactor files inside `src/` and `prisma/`:
-- **SQL Injection**: Resolve raw interpolation queries in `src/routes/doctors.js`.
-- **N+1 Database Queries**: Optimize appointments aggregation inside `src/routes/appointments.js`.
-- **Concurrency Race Conditions**: Secure `src/routes/queue.js` token increments.
-- **Weak Authorization**: Patch route security in `src/routes/patients.js`.
-- **Schema Optimization**: Introduce proper constraints and indexes in `prisma/schema.prisma`.
+Backend URL:
+
+```text
+http://localhost:5000
+```
+
+## Main Routes
+
+```text
+POST   /api/auth/login
+POST   /api/auth/register
+GET    /api/patients
+POST   /api/patients
+GET    /api/doctors
+POST   /api/doctors
+GET    /api/appointments
+POST   /api/appointments
+GET    /api/queue
+POST   /api/queue
+PATCH  /api/queue/:id
+GET    /api/reports
+```
+
+## Socket.IO Events
+
+The backend emits these queue events:
+
+```text
+queue:created
+queue:updated
+queue:changed
+```
+
+The frontend listens to these events to refresh the queue page without manual reload.
+
+## Database Files
+
+- `prisma/schema.prisma`: Prisma models and enums.
+- `prisma/seed.js`: demo users and sample data.
+- `prisma/init.sql`: manual SQL setup fallback.

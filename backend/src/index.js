@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const http = require('http');
+const { Server } = require('socket.io');
 
 // Load environment variables
 dotenv.config();
@@ -13,10 +15,42 @@ const queueRoutes = require('./routes/queue');
 const reportRoutes = require('./routes/reports');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 5000;
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
+const allowedOrigins = CLIENT_URL.split(',').map((origin) => origin.trim()).filter(Boolean);
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS blocked origin: ${origin}`));
+  },
+};
 
-// Enable CORS for all origins (weak/broad CORS config)
-app.use(cors());
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH'],
+  },
+});
+
+app.set('io', io);
+
+io.on('connection', (socket) => {
+  console.log(`[SOCKET] Client connected: ${socket.id}`);
+
+  socket.emit('queue:connected', {
+    message: 'Connected to HAQMS live queue stream',
+    connectedAt: new Date().toISOString(),
+  });
+
+  socket.on('disconnect', (reason) => {
+    console.log(`[SOCKET] Client disconnected: ${socket.id} (${reason})`);
+  });
+});
+
+app.use(cors(corsOptions));
 
 // Body parser
 app.use(express.json());
@@ -57,9 +91,10 @@ app.use((err, req, res, next) => {
 });
 
 // Listen on port
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`===================================================`);
   console.log(`   HAQMS BACKEND SERVER IS RUNNING ON PORT ${PORT}`);
+  console.log(`   SOCKET.IO LIVE QUEUE IS ENABLED`);
   console.log(`   ENVIRONMENT: ${process.env.NODE_ENV}`);
   console.log(`===================================================`);
 });

@@ -66,7 +66,7 @@ model Patient {
   phoneNumber    String
   age            Int
   gender         String
-  medicalHistory String?  // Nullable — intentional crash trigger for frontend bug
+  medicalHistory String? // Nullable — intentional crash trigger for frontend bug
   createdAt      DateTime @default(now())
 
   appointments Appointment[]
@@ -90,16 +90,16 @@ model Appointment {
 }
 
 model QueueToken {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   tokenNumber   Int
   patientId     String
-  patient       Patient     @relation(fields: [patientId], references: [id])
+  patient       Patient      @relation(fields: [patientId], references: [id])
   doctorId      String
-  doctor        Doctor      @relation(fields: [doctorId], references: [id])
+  doctor        Doctor       @relation(fields: [doctorId], references: [id])
   appointmentId String?
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  status        QueueStatus @default(WAITING)
-  createdAt     DateTime    @default(now())
+  status        QueueStatus  @default(WAITING)
+  createdAt     DateTime     @default(now())
 
   // MISSING INDEX: No index on (doctorId, createdAt) — used in daily token aggregation.
   // MISSING INDEX: No index on status — used in frequent status filter queries.

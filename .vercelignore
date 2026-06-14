@@ -1,0 +1,9 @@
+backend/.env
+backend/prisma/.env
+backend/node_modules
+frontend/node_modules
+node_modules
+frontend/.next
+.env
+.env.local
+.env.*.local
